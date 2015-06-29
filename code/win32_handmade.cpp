@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
+// TODO: Implement sine ourselves
+#include <math.h>
 #include <windows.h>
 #include <xinput.h>
 #include <dsound.h>
@@ -7,6 +9,8 @@
 #define internal static
 #define global_variable static
 #define local_persist static
+
+#define PI32 3.14159265359f
 
 typedef int8_t int8;
 typedef int16_t int16;
@@ -18,6 +22,9 @@ typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
+
+typedef float real32;
+typedef double real64;
 
 struct win32_offscreen_buffer {
     BITMAPINFO Info;
@@ -36,6 +43,7 @@ struct win32_window_dimension {
 // TODO: This is a global for now.
 global_variable bool GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
+global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 
 // NOTE: XinputGetState
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -136,8 +144,7 @@ Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize) {
             BufferDescription.dwFlags = 0;
             BufferDescription.dwBufferBytes = BufferSize;
             BufferDescription.lpwfxFormat = &WaveFormat;
-            LPDIRECTSOUNDBUFFER SecondaryBuffer;
-            HRESULT Error = DirectSound->CreateSoundBuffer(&BufferDescription, &SecondaryBuffer, 0);
+            HRESULT Error = DirectSound->CreateSoundBuffer(&BufferDescription, &GlobalSecondaryBuffer, 0);
             if (SUCCEEDED(Error)) {
                 printf("Secondary buffer created successfully.\n");
             } else {
@@ -313,12 +320,65 @@ Win32MainWindowCallback(HWND Window,
     return Result;
 }
 
+struct win32_sound_output {
+    int SamplesPerSecond;
+    int ToneHz;
+    int ToneVolumn;
+    uint32 RunningSampleIndex;
+    int WavePeriod;
+    int BytesPerSample;
+    int SecondaryBufferSize;
+};
+
+internal void
+Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD BytesToLock, DWORD BytesToWrite)
+{
+    VOID *Region1;
+    DWORD Region1Size;
+    VOID *Region2;
+    DWORD Region2Size;
+
+    if (SUCCEEDED(GlobalSecondaryBuffer->Lock(BytesToLock, BytesToWrite,
+                                              &Region1, &Region1Size,
+                                              &Region2, &Region2Size,
+                                              0))) {
+        // TODO: assert that Region1Size/Region2Size is valid
+        DWORD Region1SampleCount = Region1Size / SoundOutput->BytesPerSample;
+        int16 *SimpleOut = (int16 *) Region1;
+        for (DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex) {
+            real32 t = 2.0f * PI32 * (real32) SoundOutput->RunningSampleIndex / (real32) SoundOutput->WavePeriod;
+            real32 SineValue = sinf(t);
+            int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolumn);
+            *SimpleOut++ = SampleValue;
+            *SimpleOut++ = SampleValue;
+            ++SoundOutput->RunningSampleIndex;
+        }
+
+        DWORD Region2SampleCount = Region2Size / SoundOutput->BytesPerSample;
+        SimpleOut = (int16 *) Region2;
+        for (DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex) {
+            real32 t = 2.0f * PI32 * (real32) SoundOutput->RunningSampleIndex / (real32) SoundOutput->WavePeriod;
+            real32 SineValue = sinf(t);
+            int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolumn);
+            *SimpleOut++ = SampleValue;
+            *SimpleOut++ = SampleValue;
+            ++SoundOutput->RunningSampleIndex;
+        }
+
+        GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
+    }
+}
+
 int CALLBACK
 WinMain(HINSTANCE Instance,
         HINSTANCE hPrevInstance,
         LPSTR     lpCmdLine,
         int       nCmdShow)
 {
+    LARGE_INTEGER PerfCountFrequencyResult;
+    QueryPerformanceFrequency(&PerfCountFrequencyResult);
+    int64 PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+
     Win32LoadXInput();
 
     WNDCLASS WindowClass = {};
@@ -348,12 +408,33 @@ WinMain(HINSTANCE Instance,
         );
 
         if (Window) {
+            HDC DeviceContext = GetDC(Window);
+
+            // NOTE: Graphics test
             int XOffset = 0;
             int YOffset = 0;
 
-            Win32InitDSound(Window, 48000, 48000 * sizeof(int16) * 2);
+            // NOTE: Sound test
+            win32_sound_output SoundOutput = {};
+            SoundOutput.SamplesPerSecond = 48000;
+            SoundOutput.ToneHz = 256;
+            SoundOutput.ToneVolumn = 3000;
+            SoundOutput.RunningSampleIndex = 0;
+            SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
+            SoundOutput.BytesPerSample = sizeof(int16) * 2;
+            SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+
+            Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
+            Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.SecondaryBufferSize);
+            GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+            bool32 SoundIsPlaying = false;
 
             GlobalRunning = true;
+
+            LARGE_INTEGER LastCounter;
+            QueryPerformanceCounter(&LastCounter);
+
+            uint64 LastCycleCount = __rdtsc();
             while (GlobalRunning) {
                 MSG Message;
                 while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE)) {
@@ -388,9 +469,8 @@ WinMain(HINSTANCE Instance,
                         int16 StickX = Pad->sThumbLX;
                         int16 StickY = Pad->sThumbLX;
 
-                        if (AButton) {
-                            YOffset += 2;
-                        }
+                        XOffset += StickX >> 12;
+                        YOffset += StickY >> 12;
                     } else {
                         // NOTE: This controller is not available
                     }
@@ -398,12 +478,49 @@ WinMain(HINSTANCE Instance,
 
                 RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
 
-                HDC DeviceContext = GetDC(Window);
+                // NOTE: DirectSound output test
+                DWORD PlayCursor;
+                DWORD WriteCursor;
+                if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
+                    DWORD BytesToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+                    DWORD BytesToWrite;
+                    // TODO: We need a more accurate check than BytesToLock == PlayCursor
+                    if (BytesToLock > PlayCursor) {
+                        BytesToWrite = (SoundOutput.SecondaryBufferSize  - BytesToLock);
+                        BytesToWrite += PlayCursor;
+                    } else {
+                        BytesToWrite = PlayCursor - BytesToLock;
+                    }
+
+                    Win32FillSoundBuffer(&SoundOutput, BytesToLock, BytesToWrite);
+                }
+
+                if (!SoundIsPlaying) {
+                    GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+                    SoundIsPlaying = true;
+                }
+
                 win32_window_dimension Dimension = Win32GetWindowDimension(Window);
                 Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
                 ++XOffset;
+
+                uint64 EndCycleCount = __rdtsc();
+
+                LARGE_INTEGER EndCounter;
+                QueryPerformanceCounter(&EndCounter);
+
+                uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
+                int64 CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
+                int32 MSPerFrame = (int32) ((1000 * CounterElapsed) / PerfCountFrequency);
+                int32 FPS = PerfCountFrequency / CounterElapsed;
+                uint32 MCPF = (uint32) (CyclesElapsed / (1000 * 1000));
+
+                printf("%dms/f, %df/s, %umc/f\n", MSPerFrame, FPS, MCPF);
+
+                LastCounter = EndCounter;
+                LastCycleCount = EndCycleCount;
             }
         } else {
             // TODO: Logging
