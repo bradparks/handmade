@@ -1,10 +1,27 @@
+/*
+ * TODO: THIS IS NOT A FINAL PLATFORM LAYER!!
+ *
+ *   - Saved game locations
+ *   - Getting a handle to our own executable file
+ *   - Asset loading path
+ *   - Threading (launch a thread)
+ *   - Raw Input (support for multiple keyboards)
+ *   - Sleep/timeBeginPeriod
+ *   - ClipCursor() (multimonitor support)
+ *   - Fullscreen support
+ *   - WM_SETCURSOR (control cursor visibility)
+ *   - QueryCanelAutoplay
+ *   - WM_ACTIVATEAPP (for when we are not active application)
+ *   - Blit speed improvemetns (BitBlt)
+ *   - Hardware acceleration (OpenGL or Direct3D or BOTH??)
+ *   - GetKeyboardLayout (for French keybords, international WASD support)
+ *
+ *   Just a partial list of stuff!!
+ */
 #include <stdio.h>
 #include <stdint.h>
 // TODO: Implement sine ourselves
 #include <math.h>
-#include <windows.h>
-#include <xinput.h>
-#include <dsound.h>
 
 #define internal static
 #define global_variable static
@@ -26,13 +43,18 @@ typedef uint64_t uint64;
 typedef float real32;
 typedef double real64;
 
+#include "handmade.cpp"
+
+#include <windows.h>
+#include <xinput.h>
+#include <dsound.h>
+
 struct win32_offscreen_buffer {
     BITMAPINFO Info;
     void *Memory;
     int Width;
     int Height;
     int Pitch;
-    int BytesPerPixel;
 };
 
 struct win32_window_dimension {
@@ -171,22 +193,6 @@ Win32GetWindowDimension(HWND Window)
 }
 
 internal void
-RenderWeirdGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset)
-{
-    uint8 *Row = (uint8 *) Buffer->Memory;
-    for (int Y = 0; Y < Buffer->Height; ++Y) {
-        uint32 *Pixel = (uint32 *) Row;
-        for (int X = 0; X < Buffer->Width; ++X) {
-            uint8 Blue = (X + XOffset);
-            uint8 Green = (Y + YOffset);
-            *Pixel++ = ((Green << 8) | Blue);
-        }
-
-        Row += Buffer->Pitch;
-    }
-}
-
-internal void
 Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 {
     // TODO: Bulletproof this.
@@ -198,7 +204,8 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 
     Buffer->Width = Width;
     Buffer->Height = Height;
-    Buffer->BytesPerPixel = 4;
+
+    int BytesPerPixel = 4;
 
     // NOTE: When the biHeight field is negative, this is the clue to
     // Windows to treat this bitmap as top-down, not bottom-up, meaning that
@@ -211,12 +218,12 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
     Buffer->Info.bmiHeader.biBitCount = 32;
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
-    int BitmapMemorySize = (Buffer->Width * Buffer->Height) * Buffer->BytesPerPixel;
+    int BitmapMemorySize = (Buffer->Width * Buffer->Height) * BytesPerPixel;
     Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 
     // TODO: Probably clear this to black
 
-    Buffer->Pitch = Width * Buffer->BytesPerPixel;
+    Buffer->Pitch = Width * BytesPerPixel;
 }
 
 internal void
@@ -476,7 +483,13 @@ WinMain(HINSTANCE Instance,
                     }
                 }
 
-                RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
+                game_offscreen_buffer Buffer = {};
+                Buffer.Memory = GlobalBackBuffer.Memory;
+                Buffer.Width = GlobalBackBuffer.Width;
+                Buffer.Height = GlobalBackBuffer.Height;
+                Buffer.Pitch = GlobalBackBuffer.Pitch;
+
+                GameUpdateAndRender(&Buffer, XOffset, YOffset);
 
                 // NOTE: DirectSound output test
                 DWORD PlayCursor;
@@ -484,7 +497,6 @@ WinMain(HINSTANCE Instance,
                 if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
                     DWORD BytesToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
                     DWORD BytesToWrite;
-                    // TODO: We need a more accurate check than BytesToLock == PlayCursor
                     if (BytesToLock > PlayCursor) {
                         BytesToWrite = (SoundOutput.SecondaryBufferSize  - BytesToLock);
                         BytesToWrite += PlayCursor;
@@ -502,9 +514,9 @@ WinMain(HINSTANCE Instance,
 
                 win32_window_dimension Dimension = Win32GetWindowDimension(Window);
                 Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
-                ReleaseDC(Window, DeviceContext);
 
                 ++XOffset;
+                ++YOffset;
 
                 uint64 EndCycleCount = __rdtsc();
 
