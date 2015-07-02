@@ -49,18 +49,7 @@ typedef double real64;
 #include <xinput.h>
 #include <dsound.h>
 
-struct win32_offscreen_buffer {
-    BITMAPINFO Info;
-    void *Memory;
-    int Width;
-    int Height;
-    int Pitch;
-};
-
-struct win32_window_dimension {
-    int Width;
-    int Height;
-};
+#include "win32_handmade.h"
 
 // TODO: This is a global for now.
 global_variable bool GlobalRunning;
@@ -327,16 +316,6 @@ Win32MainWindowCallback(HWND Window,
     return Result;
 }
 
-struct win32_sound_output {
-    int SamplesPerSecond;
-    int ToneHz;
-    int ToneVolumn;
-    uint32 RunningSampleIndex;
-    int WavePeriod;
-    int BytesPerSample;
-    int SecondaryBufferSize;
-};
-
 internal void
 Win32ClearBuffer(win32_sound_output *SoundOutput)
 {
@@ -440,17 +419,10 @@ WinMain(HINSTANCE Instance,
         if (Window) {
             HDC DeviceContext = GetDC(Window);
 
-            // NOTE: Graphics test
-            int XOffset = 0;
-            int YOffset = 0;
-
             // NOTE: Sound test
             win32_sound_output SoundOutput = {};
             SoundOutput.SamplesPerSecond = 48000;
-            SoundOutput.ToneHz = 256;
-            SoundOutput.ToneVolumn = 3000;
             SoundOutput.RunningSampleIndex = 0;
-            SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
             SoundOutput.BytesPerSample = sizeof(int16) * 2;
             SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
 
@@ -501,12 +473,6 @@ WinMain(HINSTANCE Instance,
 
                         int16 StickX = Pad->sThumbLX;
                         int16 StickY = Pad->sThumbLX;
-
-                        XOffset += StickX >> 12;
-                        YOffset += StickY >> 12;
-
-                        SoundOutput.ToneHz = 512 + (int) (256.0f * ((real32) StickY / 30000.0f));
-                        SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
                     } else {
                         // NOTE: This controller is not available
                     }
@@ -541,7 +507,7 @@ WinMain(HINSTANCE Instance,
                 Buffer.Height = GlobalBackBuffer.Height;
                 Buffer.Pitch = GlobalBackBuffer.Pitch;
 
-                GameUpdateAndRender(&Buffer, XOffset, YOffset, &SoundBuffer, SoundOutput.ToneHz);
+                GameUpdateAndRender(&Buffer, &SoundBuffer);
 
                 // NOTE: DirectSound output test
                 if (SoundIsValid) {
@@ -555,9 +521,6 @@ WinMain(HINSTANCE Instance,
 
                 win32_window_dimension Dimension = Win32GetWindowDimension(Window);
                 Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
-
-                ++XOffset;
-                ++YOffset;
 
                 uint64 EndCycleCount = __rdtsc();
 
