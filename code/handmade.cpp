@@ -46,7 +46,7 @@ GameUpdateAndRender(game_input *Input,
     local_persist int GreenOffset = 0;
     local_persist int ToneHz = 256;
 
-    game_controller_input *Input0 = &Input.controllers[0];
+    game_controller_input *Input0 = &Input->Controllers[0];
     if (Input0->IsAnalog) {
         BlueOffset += (int) (4.0f * Input0->EndX);
         ToneHz = 256 + (int) (128.0f * Input0->EndY);

@@ -53,11 +53,11 @@ struct game_controller_input {
             game_button_state Right;
             game_button_state LeftShoulder;
             game_button_state RightShoulder;
-        }
-    }
+        };
+    };
 };
 
-struct ganme_input {
+struct game_input {
     game_controller_input Controllers[4];
 };
 
