@@ -61,7 +61,14 @@ struct game_input {
     game_controller_input Controllers[4];
 };
 
-internal void GameUpdateAndRender(game_input *Input,
+struct game_state {
+    int ToneHz;
+    int GreenOffset;
+    int BlueOffset;
+};
+
+internal void GameUpdateAndRender(game_state* GameState,
+                                  game_input *Input,
                                   game_offscreen_buffer *Buffer,
                                   game_sound_output_buffer *SoundBuffer);
 
