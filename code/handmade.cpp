@@ -37,29 +37,24 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffs
     }
 }
 
-internal game_state *
-GameStartup(void)
-{
-    game_state *GameState = new game_state;
-    if (GameState) {
-        GameState->BlueOffset = 0;
-        GameState->GreenOffset = 0;
-        GameState->ToneHz = 256;
-    }
-}
-
 internal void
-GameShutdown(game_state *GameState)
-{
-    delete GameState;
-}
-
-internal void
-GameUpdateAndRender(game_state *GameState,
+GameUpdateAndRender(game_memory *Memory,
                     game_input *Input,
                     game_offscreen_buffer *Buffer,
                     game_sound_output_buffer *SoundBuffer)
 {
+    Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
+
+    game_state *GameState = (game_state *) Memory->PermanentStorage;
+    if (!Memory->IsInitialized) {
+        GameState->ToneHz = 256;
+        GameState->GreenOffset = 0;
+        GameState->BlueOffset = 0;
+
+        // TODO: This may be more appropriate to do in the platform layer
+        Memory->IsInitialized = true;
+    }
+
     game_controller_input *Input0 = &Input->Controllers[0];
     if (Input0->IsAnalog) {
         GameState->BlueOffset += (int) (4.0f * Input0->EndX);
@@ -75,4 +70,3 @@ GameUpdateAndRender(game_state *GameState,
     GameOutputSound(SoundBuffer, GameState->ToneHz);
     RenderWeirdGradient(Buffer, GameState->BlueOffset, GameState->GreenOffset);
 }
-
