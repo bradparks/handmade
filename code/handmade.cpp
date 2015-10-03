@@ -47,9 +47,15 @@ GameUpdateAndRender(game_memory *Memory,
 
     game_state *GameState = (game_state *) Memory->PermanentStorage;
     if (!Memory->IsInitialized) {
+        char *Filename = __FILE__;
+
+        debug_read_file_result File = DEBUGPlatformReadEntireFile(Filename);
+        if (File.Contents) {
+            DEBUGPlatformWriteEntireFile("test.out", File.ContentsSize, File.Contents);
+            DEBUGPlatformFreeFileMemory(File.Contents);
+        }
+
         GameState->ToneHz = 256;
-        GameState->GreenOffset = 0;
-        GameState->BlueOffset = 0;
 
         // TODO: This may be more appropriate to do in the platform layer
         Memory->IsInitialized = true;
