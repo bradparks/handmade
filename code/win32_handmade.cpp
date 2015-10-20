@@ -18,6 +18,7 @@
  *
  *   Just a partial list of stuff!!
  */
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 // TODO: Implement sine ourselves
@@ -260,6 +261,7 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
     Buffer->Height = Height;
 
     int BytesPerPixel = 4;
+    Buffer->BytesPerPixel = BytesPerPixel;
 
     // NOTE: When the biHeight field is negative, this is the clue to
     // Windows to treat this bitmap as top-down, not bottom-up, meaning that
@@ -274,10 +276,9 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 
     int BitmapMemorySize = (Buffer->Width * Buffer->Height) * BytesPerPixel;
     Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    Buffer->Pitch = Width * BytesPerPixel;
 
     // TODO: Probably clear this to black
-
-    Buffer->Pitch = Width * BytesPerPixel;
 }
 
 internal void
@@ -329,7 +330,7 @@ Win32MainWindowCallback(HWND Window,
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            Assert(!"Keybord input came in through a non-dispatch message");
+            assert(!"Keybord input came in through a non-dispatch message");
         } break;
 
         case WM_PAINT:
@@ -421,7 +422,7 @@ Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD BytesToLock, DWORD B
 
 internal void
 Win32ProcessKeybordMessage(game_button_state *NewState, bool32 IsDown) {
-    Assert(NewState->EndedDown != IsDown);
+    assert(NewState->EndedDown != IsDown);
     NewState->EndedDown = IsDown;
     ++NewState->HalfTransitionCount;
 }
@@ -518,6 +519,48 @@ Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End) {
     return ((real32) (End.QuadPart - Start.QuadPart) / (real32) GlobalPerfCountFrequency);
 }
 
+internal void
+Win32DebugDrawVertical(win32_offscreen_buffer *GlobalBackBuffer,
+                       int X, int Top, int Bottom, uint32 Color) {
+    uint8 *Pixel = ((uint8 *) GlobalBackBuffer->Memory
+                    + X * GlobalBackBuffer->BytesPerPixel
+                    + Top * GlobalBackBuffer->Pitch);
+    for (int Y = Top; Y < Bottom; ++Y) {
+        *(uint32 *) Pixel = Color;
+        Pixel += GlobalBackBuffer->Pitch;
+    }
+}
+
+inline void
+Win32DrawSoundBufferMarker(win32_offscreen_buffer *BackBuffer,
+                           win32_sound_output *SoundOutput,
+                           real32 C, int PadX, int Top, int Bottom,
+                           DWORD Value, uint32 Color) {
+    assert(Value < SoundOutput->SecondaryBufferSize);
+    real32 X = PadX + (int) (C * (real32) Value);
+    Win32DebugDrawVertical(BackBuffer, X, Top, Bottom, Color);
+}
+
+internal void
+Win32DebugSyncDisplay(win32_offscreen_buffer *BackBuffer,
+                      size_t MarkerCount, win32_debug_time_marker *Markers,
+                      win32_sound_output *SoundOutput, real32 TargetSecondsPerFramew) {
+    // TODO: Draw where we're writing out sound
+
+    int PadX = 16;
+    int PadY = 16;
+
+    int Top = PadY;
+    int Bottom = BackBuffer->Height - PadY;
+
+    real32 C = (real32) (BackBuffer->Width - 2 * PadX) / (real32) SoundOutput->SecondaryBufferSize;
+    for (size_t MarkerIndex = 0; MarkerIndex < MarkerCount; ++MarkerIndex) {
+        win32_debug_time_marker *ThisMarker = &Markers[MarkerIndex];
+        Win32DrawSoundBufferMarker(BackBuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->PlayCursor, 0xFFFFFFFF);
+        Win32DrawSoundBufferMarker(BackBuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->WriteCursor, 0xFFFF0000);
+    }
+}
+
 int CALLBACK
 WinMain(HINSTANCE Instance,
         HINSTANCE hPrevInstance,
@@ -546,6 +589,7 @@ WinMain(HINSTANCE Instance,
     WindowClass.lpszClassName = "HandmadeHeroWindowClass";
 
     // TOOD: How do we reliably query on this on Windows?
+    int FramesOfAudioLatency = 4;
     int MonitorRefreshHz = 60;
     int GameUpdateHz = MonitorRefreshHz / 2;
     real32 TargetSecondsPerFrame = 1.0f / (real32) GameUpdateHz;
@@ -575,6 +619,7 @@ WinMain(HINSTANCE Instance,
             SoundOutput.RunningSampleIndex = 0;
             SoundOutput.BytesPerSample = sizeof(int16) * 2;
             SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+            SoundOutput.LatencySampleCount = FramesOfAudioLatency * (SoundOutput.SamplesPerSecond / GameUpdateHz);
 
             Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
             Win32ClearBuffer(&SoundOutput);
@@ -608,6 +653,13 @@ WinMain(HINSTANCE Instance,
 
 
                 LARGE_INTEGER LastCounter = Win32GetWallClock();
+
+                size_t DebugTimeMarkerIndex = 0;
+                win32_debug_time_marker DebugTimeMarkers[GameUpdateHz / 2] = {0};
+
+                // TODO: Handle startup specially
+                DWORD LastPlayCursor = 0;
+                bool32 SoundIsValid = false;
 
                 uint64 LastCycleCount = __rdtsc();
                 while (GlobalRunning) {
@@ -741,22 +793,22 @@ WinMain(HINSTANCE Instance,
                         }
                     }
 
-                    DWORD PlayCursor = 0;
-                    DWORD WriteCursor = 0;
+                    // NOTE: Compute how much sound to write and where
                     DWORD BytesToLock = 0;
+                    DWORD TargetCursor = 0;
                     DWORD BytesToWrite = 0;
-                    bool32 SoundIsValid = false;
-                    if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
-                        BytesToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
-                        //DWORD TargetCursor = (PlayCursor + SoundOutput->LatencySampleCount * SoundOutput.BytesPerSample) % SoundOutput->SecondaryBufferSize;
-                        if (BytesToLock > PlayCursor) {
-                            BytesToWrite = (SoundOutput.SecondaryBufferSize  - BytesToLock);
-                            BytesToWrite += PlayCursor;
-                        } else {
-                            BytesToWrite = PlayCursor - BytesToLock;
-                        }
+                    if (SoundIsValid) {
+                        BytesToLock = ((SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample)
+                                       % SoundOutput.SecondaryBufferSize);
 
-                        SoundIsValid = true;
+                        TargetCursor = ((LastPlayCursor + SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)
+                                        % SoundOutput.SecondaryBufferSize);
+                        if (BytesToLock > TargetCursor) {
+                            BytesToWrite = (SoundOutput.SecondaryBufferSize  - BytesToLock);
+                            BytesToWrite += TargetCursor;
+                        } else {
+                            BytesToWrite = TargetCursor - BytesToLock;
+                        }
                     }
 
                     game_sound_output_buffer SoundBuffer = {};
@@ -803,16 +855,43 @@ WinMain(HINSTANCE Instance,
                         // TODO: Logging
                     }
 
+                    LARGE_INTEGER EndCounter = Win32GetWallClock();
+                    real64 MSPerFrame = 1000.0f * Win32GetSecondsElapsed(LastCounter, EndCounter);
+                    LastCounter = EndCounter;
+
                     win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+#if HANDMADE_INTERNAL
+                    Win32DebugSyncDisplay(&GlobalBackBuffer,
+                                          ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
+                                          &SoundOutput, TargetSecondsPerFrame);
+#endif
                     Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
+
+                    DWORD PlayCursor, WriteCursor;
+                    if (GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor) == DS_OK) {
+                        LastPlayCursor = PlayCursor;
+                        if (!SoundIsValid) {
+                            SoundOutput.RunningSampleIndex = WriteCursor / SoundOutput.BytesPerSample;
+                            SoundIsValid = true;
+                        }
+                    } else {
+                        SoundIsValid = false;
+                    }
+
+#if HANDMADE_INTERNAL
+                    {
+                        win32_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex++];
+                        if (DebugTimeMarkerIndex > ArrayCount(DebugTimeMarkers)) {
+                            DebugTimeMarkerIndex = 0;
+                        }
+                        Marker->PlayCursor = PlayCursor;
+                        Marker->WriteCursor = WriteCursor;
+                    }
+#endif
 
                     game_input *Temp = NewInput;
                     NewInput = OldInput;
                     OldInput = Temp;
-
-                    LARGE_INTEGER EndCounter = Win32GetWallClock();
-                    real64 MSPerFrame = 1000.0f * Win32GetSecondsElapsed(LastCounter, EndCounter);
-                    LastCounter = EndCounter;
 
                     uint64 EndCycleCount = __rdtsc();
                     uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
