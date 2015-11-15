@@ -13,8 +13,34 @@
     1 - Slow code welcome.
  */
 
+#include <assert.h>
+#include <stdio.h>
+#include <stdint.h>
+// TODO: Implement sine ourselves
+#include <math.h>
+
+
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+typedef int32 bool32;
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
+typedef float real32;
+typedef double real64;
+
+#define internal static
+#define global_variable static
+#define local_persist static
+
+#define PI32 3.14159265359f
 #if HANDMADE_SLOW
-#define Assert(Expression) if (!(Expression)) { *(int *) 0  = 0; }
+#define Assert(Expression) assert(Expression)
 #else
 #define Assert(Expression)
 #endif
@@ -128,8 +154,13 @@ struct game_memory {
 
 internal void GameUpdateAndRender(game_memory *Memory,
                                   game_input *Input,
-                                  game_offscreen_buffer *Buffer,
-                                  game_sound_output_buffer *SoundBuffer);
+                                  game_offscreen_buffer *Buffer);
+
+// NOTE: At the moment, this has to be a very fast function, it cannot be
+// more than a millisecond or so.
+// TODO: Reduce the pressure on this function's performance by measuring it
+// or asking about it, etc.
+internal void GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundBuffer);
 
 struct game_state {
     int ToneHz;
