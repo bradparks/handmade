@@ -339,6 +339,11 @@ Win32MainWindowCallback(HWND Window,
         case WM_ACTIVATEAPP:
         {
             printf("WM_ACTIVATEAPP\n");
+            if (WParam == TRUE) {
+                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 255, LWA_ALPHA);
+            } else {
+                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 64, LWA_ALPHA);
+            }
         } break;
 
         case WM_DESTROY:
@@ -471,7 +476,69 @@ Win32ProcessXInputStickValue(SHORT Value, SHORT DeadZoneThreshold) {
 }
 
 internal void
-Win32ProcessPendingMessage(game_controller_input *KeyboardController) {
+Win32BeginRecordingInput(win32_state *Win32State, int InputRecordingIndex) {
+    Win32State->InputRecordingIndex = InputRecordingIndex;
+
+    // TODO: These files must go in a temporary/build directory!!!!
+    // TODO: Lazily write the giant memory block and use a memory copy instead?
+    const char *Filename = "foo.hmi";
+    Win32State->RecordingHandle = CreateFileA(Filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+
+    DWORD BytesToWrite = (DWORD) Win32State->TotalSize;
+    Assert(Win32State->TotalSize == BytesToWrite);
+    DWORD BytesWritten;
+    WriteFile(Win32State->RecordingHandle, Win32State->GameMemoryBlock, BytesToWrite,
+              &BytesWritten, 0);
+}
+
+internal void
+Win32EndRecordingInput(win32_state *Win32State) {
+    CloseHandle(Win32State->RecordingHandle);
+    Win32State->InputRecordingIndex = 0;
+}
+
+internal void
+Win32BeginInputPlayBack(win32_state *Win32State, int InputPlayingIndex) {
+    Win32State->InputPlayingIndex = InputPlayingIndex;
+
+    const char *Filename = "foo.hmi";
+    Win32State->PlaybackHandle = CreateFileA(Filename, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
+
+    DWORD BytesToRead = (DWORD) Win32State->TotalSize;
+    Assert(Win32State->TotalSize == BytesToRead);
+    DWORD BytesRead;
+    ReadFile(Win32State->PlaybackHandle, Win32State->GameMemoryBlock, BytesToRead,
+             &BytesRead, 0);
+}
+
+internal void
+Win32EndInputPlayBack(win32_state *Win32State) {
+    CloseHandle(Win32State->PlaybackHandle);
+    Win32State->InputPlayingIndex = 0;
+}
+
+internal void
+Win32RecordInput(win32_state *Win32State, game_input *NewInput){
+    DWORD BytesWritten;
+    WriteFile(Win32State->RecordingHandle, NewInput, sizeof(*NewInput), &BytesWritten, 0);
+}
+
+internal void
+Win32PlayBackInput(win32_state *Win32State, game_input *NewInput) {
+    DWORD BytesRead = 0;
+    if (ReadFile(Win32State->PlaybackHandle, NewInput, sizeof(*NewInput), &BytesRead, 0)) {
+        if (BytesRead == 0) {
+            // NOTE: We've hit the end of the stream, go back to the begining
+            int PlayingIndex = Win32State->InputPlayingIndex;
+            Win32EndInputPlayBack(Win32State);
+            Win32BeginInputPlayBack(Win32State, PlayingIndex);
+            ReadFile(Win32State->PlaybackHandle, NewInput, sizeof(*NewInput), &BytesRead, 0);
+        }
+    }
+}
+
+internal void
+Win32ProcessPendingMessage(win32_state *Win32State, game_controller_input *KeyboardController) {
   MSG Message;
 
   while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE)) {
@@ -518,6 +585,15 @@ Win32ProcessPendingMessage(game_controller_input *KeyboardController) {
             else if (VKCode == 'P') {
                 if (IsDown) {
                     GlobalPause = !GlobalPause;
+                }
+            } else if (VKCode == 'L') {
+                if (IsDown) {
+                    if (Win32State->InputRecordingIndex == 0) {
+                        Win32BeginRecordingInput(Win32State, 1);
+                    } else {
+                        Win32EndRecordingInput(Win32State);
+                        Win32BeginInputPlayBack(Win32State, 1);
+                    }
                 }
             }
 #endif
@@ -709,7 +785,7 @@ WinMain(HINSTANCE Instance,
 
     if (RegisterClass(&WindowClass)) {
         HWND Window = CreateWindowEx(
-            0,
+            WS_EX_TOPMOST | WS_EX_LAYERED,
             WindowClass.lpszClassName,
             "Handmade Hero",
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -724,8 +800,6 @@ WinMain(HINSTANCE Instance,
         );
 
         if (Window) {
-            HDC DeviceContext = GetDC(Window);
-
             // NOTE: Sound test
             win32_sound_output SoundOutput = {};
             SoundOutput.SamplesPerSecond = 48000;
@@ -743,6 +817,7 @@ WinMain(HINSTANCE Instance,
             GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
             bool32 SoundIsPlaying = false;
 
+            win32_state Win32State = {};
             GlobalRunning = true;
 
             int16 *Samples = (int16 *) VirtualAlloc(0, SoundOutput.SecondaryBufferSize,
@@ -756,16 +831,16 @@ WinMain(HINSTANCE Instance,
             game_memory GameMemory = {};
             GameMemory.PermanentStorageSize = Megabytes(64);
             GameMemory.TransientStorageSize = Gigabytes(1);
-
             GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
             GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
             GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
-            uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.PermanentStorageSize;
-            GameMemory.PermanentStorage = VirtualAlloc(BaseAddress,
-                                                       (size_t) TotalSize,
-                                                       MEM_RESERVE | MEM_COMMIT,
-                                                       PAGE_READWRITE);
+            Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.PermanentStorageSize;
+            Win32State.GameMemoryBlock = VirtualAlloc(BaseAddress,
+                                                 (size_t) Win32State.TotalSize,
+                                                 MEM_RESERVE | MEM_COMMIT,
+                                                 PAGE_READWRITE);
+            GameMemory.PermanentStorage = Win32State.GameMemoryBlock;
             GameMemory.TransientStorage = ((uint8 *) GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
 
             if (Samples && GameMemory.PermanentStorage && GameMemory.TransientStorage) {
@@ -807,7 +882,7 @@ WinMain(HINSTANCE Instance,
                         NewKeyboardController->Buttons[ButtonIndex].EndedDown = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
                     }
 
-                    Win32ProcessPendingMessage(NewKeyboardController);
+                    Win32ProcessPendingMessage(&Win32State, NewKeyboardController);
 
                     if (!GlobalPause) {
                         // TODO: Should we poll this more frequently
@@ -842,18 +917,18 @@ WinMain(HINSTANCE Instance,
                                 }
 
                                 if (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN) {
-                                    NewController->IsAnalog = false;
                                     NewController->StickAverageY = -1.0f;
+                                    NewController->IsAnalog = false;
                                 }
 
                                 if (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT) {
-                                    NewController->IsAnalog = false;
                                     NewController->StickAverageX = -1.0f;
+                                    NewController->IsAnalog = false;
                                 }
 
                                 if (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) {
-                                    NewController->IsAnalog = false;
                                     NewController->StickAverageX = 1.0f;
+                                    NewController->IsAnalog = false;
                                 }
 
 
@@ -918,9 +993,6 @@ WinMain(HINSTANCE Instance,
                                                                 XINPUT_GAMEPAD_START,
                                                                 &NewController->Back);
 
-                                //bool Start = (Pad->wButtons & XINPUT_GAMEPAD_START);
-                                //bool Back = (Pad->wButtons & XINPUT_GAMEPAD_BACK);
-
                             } else {
                                 // NOTE: This controller is not available
                                 NewController->IsConnected = false;
@@ -932,7 +1004,15 @@ WinMain(HINSTANCE Instance,
                         Buffer.Width = GlobalBackBuffer.Width;
                         Buffer.Height = GlobalBackBuffer.Height;
                         Buffer.Pitch = GlobalBackBuffer.Pitch;
+                        Buffer.BytesPerPixel = GlobalBackBuffer.BytesPerPixel;
 
+                        if (Win32State.InputRecordingIndex) {
+                            Win32RecordInput(&Win32State, NewInput);
+                        }
+
+                        if (Win32State.InputPlayingIndex) {
+                            Win32PlayBackInput(&Win32State, NewInput);
+                        }
                         Game.UpdateAndRender(&GameMemory, NewInput, &Buffer);
 
                         LARGE_INTEGER AudioWallClock = Win32GetWallClock();
@@ -1084,7 +1164,9 @@ WinMain(HINSTANCE Instance,
                                               &SoundOutput, TargetSecondsPerFrame);
 #endif
 
+                        HDC DeviceContext = GetDC(Window);
                         Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
+                        ReleaseDC(Window, DeviceContext);
 
                         FlipWallClock = Win32GetWallClock();
 #if HANDMADE_INTERNAL
