@@ -167,7 +167,6 @@ struct game_memory {
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
-GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub) {}
 
 // NOTE: At the moment, this has to be a very fast function, it cannot be
 // more than a millisecond or so.
@@ -175,7 +174,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub) {}
 // or asking about it, etc.
 #define GAME_GET_SOUND_SAMPLES(name) void name(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
 typedef GAME_GET_SOUND_SAMPLES(game_get_sound_samples);
-GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesStub) {}
 
 struct game_state {
     int ToneHz;
