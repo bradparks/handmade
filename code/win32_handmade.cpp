@@ -832,7 +832,7 @@ WinMain(HINSTANCE Instance,
 
     WNDCLASS WindowClass = {};
 
-    Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
+    Win32ResizeDIBSection(&GlobalBackBuffer, 960, 540);
 
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -947,6 +947,7 @@ WinMain(HINSTANCE Instance,
                 game_input Input[2] = {};
                 game_input *NewInput = &Input[0];
                 game_input *OldInput = &Input[1];
+                NewInput->SecondsToAdvanceOverUpdate = TargetSecondsPerFrame;
 
 
                 LARGE_INTEGER LastCounter = Win32GetWallClock();
