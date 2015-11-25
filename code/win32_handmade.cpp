@@ -352,6 +352,14 @@ internal void
 Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer, HDC DeviceContext,
                            int WindowWidth, int WindowHeight)
 {
+    int OffsetX = 10;
+    int OffsetY = 10;
+
+    PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
+    PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight, BLACKNESS);
+
     // NOTE: For prototyping purposes, we're going to always blit
     // 1-to-1 pixels to make sure we don't introduce artifacts with
     // stretching while we are learning to code the renderer!
@@ -360,7 +368,7 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer, HDC DeviceContext,
                   X, Y, Width, Height,
                   X, Y, Width, Height,
                   */
-                  0, 0, Buffer->Width, Buffer->Height,
+                  OffsetX, OffsetY, Buffer->Width, Buffer->Height,
                   0, 0, Buffer->Width, Buffer->Height,
                   Buffer->Memory, &Buffer->Info,
                   DIB_RGB_COLORS, SRCCOPY);
@@ -955,8 +963,6 @@ WinMain(HINSTANCE Instance,
                 win32_debug_time_marker DebugTimeMarkers[30] = {0};
 
                 // TODO: Handle startup specially
-                DWORD AudioLatencyBytes = 0;
-                real32 AudioLatencySeconds = 0;
                 bool32 SoundIsValid = false;
 
                 win32_game_code Game = Win32LoadGameCode(SourceGameCodeDLLFullpath,
@@ -1230,11 +1236,6 @@ WinMain(HINSTANCE Instance,
                             if (WriteCursor < PlayCursor) {
                                 UnwrappedWriteCursor += SoundOutput.SecondaryBufferSize;
                             }
-                            AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
-                            AudioLatencySeconds =
-                                (((real32) AudioLatencyBytes / (real32) SoundOutput.BytesPerSample) /
-                                 (real32) SoundOutput.SamplesPerSecond);
-
 #if 0
                             printf("BTL:%lu TC:%lu BTW:%lu - PC:%lu WC:%lu DELTA:%lu (%fs)\n",
                                    BytesToLock, TargetCursor, BytesToWrite,
