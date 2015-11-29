@@ -51,15 +51,30 @@ inline game_controller_input *GetController(game_input *Input, size_t Controller
 }
 
 struct canonical_position {
+    /* TODO:
+
+       Take the tile map x and y
+       and the tile x and y
+
+       and pack them into single 32-bit values for x and y
+       where there is some low bits for the tile index
+       and the high bits are the tile "page"
+
+       (NOTE we can eliminate the need for floor!)
+     */
     int32 TileMapX;
     int32 TileMapY;
 
     int32 TileX;
     int32 TileY;
 
-    // NOTE: This is tile-relative X and Y
-    real32 X;
-    real32 Y;
+    /* TODO:
+
+       Conver these to math-frienly, resolution independent representation of
+       world units relative to a tile
+     */
+    real32 TileRelX;
+    real32 TileRelY;
 };
 
 // TODO: Is this ever necessary?
@@ -77,13 +92,14 @@ struct tile_map {
 };
 
 struct world {
+    real32 TileSideInMeters;
+    int32 TileSideInPixels;
+
     int32 CountX;
     int32 CountY;
 
     real32 UpperLeftX;
     real32 UpperLeftY;
-    real32 TileWidth;
-    real32 TileHeight;
 
     // TODO: Beginner's sparseness
     int32 TileMapCountX;
