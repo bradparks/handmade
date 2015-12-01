@@ -542,6 +542,7 @@ Win32GetInputFileLocation(win32_state *State, bool32 InputStream, int SlotIndex,
 
 internal win32_replay_buffer *
 Win32GetReplayBuffer(win32_state *State, unsigned int Index) {
+    Assert(Index > 0);
     Assert(Index < ArrayCount(State->ReplayBuffers));
     win32_replay_buffer *ReplayBuffer = &State->ReplayBuffers[Index];
     return ReplayBuffer;
@@ -910,8 +911,13 @@ WinMain(HINSTANCE Instance,
             GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
             // TODO: Handle various memory footprints (USING SYSTEM METRICS)
+
             // TODO: Use MEM_LARGE_PAGES and call adjust token
             // privileges when not on Windows XP
+
+            // TODO: TransientStorage needs to be broken up
+            // into game transient and cache transient, and only the
+            // former need be saved for state playback.
             Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.PermanentStorageSize;
             Win32State.GameMemoryBlock = VirtualAlloc(BaseAddress,
                                                  (size_t) Win32State.TotalSize,
@@ -920,7 +926,7 @@ WinMain(HINSTANCE Instance,
             GameMemory.PermanentStorage = Win32State.GameMemoryBlock;
             GameMemory.TransientStorage = ((uint8 *) GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
 
-            for (size_t ReplayIndex = 0; ReplayIndex < ArrayCount(Win32State.ReplayBuffers); ++ReplayIndex) {
+            for (size_t ReplayIndex = 1; ReplayIndex < ArrayCount(Win32State.ReplayBuffers); ++ReplayIndex) {
                 win32_replay_buffer *ReplayBuffer = &Win32State.ReplayBuffers[ReplayIndex];
 
                 // TODO: Recording system still seems to take too long
