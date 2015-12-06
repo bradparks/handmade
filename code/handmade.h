@@ -50,57 +50,24 @@ inline game_controller_input *GetController(game_input *Input, size_t Controller
     return &Input->Controllers[ControllerIndex];
 }
 
-struct tile_chunk_position {
-    uint32 TileChunkX;
-    uint32 TileChunkY;
+#include "handmade_intrinsics.h"
+#include "handmade_tile.h"
 
-    uint32 RelTileX;
-    uint32 RelTileY;
-};
-
-struct world_position {
-    /* TODO:
-
-       Take the tile map x and y
-       and the tile x and y
-
-       and pack them into single 32-bit values for x and y
-       where there is some low bits for the tile index
-       and the high bits are the tile "page"
-
-       (NOTE we can eliminate the need for floor!)
-     */
-    uint32 AbsTileX;
-    uint32 AbsTileY;
-
-    // TODO: Should these be from the center of a tile?
-    // TODO: Rename to offset x and y
-    real32 TileRelX;
-    real32 TileRelY;
-};
-
-struct tile_chunk {
-    uint32 *Tiles;
+struct memory_arena {
+    memory_index Size;
+    uint8 *Base;
+    memory_index Used;
 };
 
 struct world {
-    uint32 ChunkShift;
-    uint32 ChunkMask;
-    uint32 ChunkDim;
-
-    real32 TileSideInMeters;
-    int32 TileSideInPixels;
-    real32 MetersToPixels;
-
-    // TODO: Beginner's sparseness
-    int32 TileChunkCountX;
-    int32 TileChunkCountY;
-
-    tile_chunk *TileChunks;
+    tile_map *TileMap;
 };
 
 struct game_state {
-    world_position PlayerP;
+    memory_arena WorldArena;
+    world *World;
+
+    tile_map_position PlayerP;
 };
 
 #endif
