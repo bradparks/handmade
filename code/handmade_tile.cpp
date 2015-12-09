@@ -67,6 +67,11 @@ GetTileValue(tile_map *TileMap, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTile
     return GetTileValue(TileMap, TileChunk, ChunkPos.RelTileX, ChunkPos.RelTileY);
 }
 
+internal uint32
+GetTileValue(tile_map *TileMap, tile_map_position Pos) {
+    return GetTileValue(TileMap, Pos.AbsTileX, Pos.AbsTileY, Pos.AbsTileZ);
+}
+
 internal void
 SetTileValue(memory_arena *Arena, tile_map *TileMap,
              uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ,
@@ -91,12 +96,17 @@ SetTileValue(memory_arena *Arena, tile_map *TileMap,
 internal bool32
 IsTileMapPointEmpty(tile_map *TileMap, tile_map_position CanPos) {
     uint32 TileChunkValue = GetTileValue(TileMap, CanPos.AbsTileX, CanPos.AbsTileY, CanPos.AbsTileZ);
-    bool32 Empty = TileChunkValue == 1;
+    bool32 Empty = (TileChunkValue == 1 ||
+                    TileChunkValue == 3 ||
+                    TileChunkValue == 4);
 
     return Empty;
 
 }
 
+//
+// TODO: Do there really belong in more of a "positioning" or "geometry" file?
+//
 inline void
 RecanonicalizeCoord(tile_map *TileMap, uint32 *Tile, real32 *TileRel) {
     // TODO: Need to do something that doesn't use the divede/multiply method
@@ -118,8 +128,16 @@ inline tile_map_position
 RecanonicalizePosition(tile_map *TileMap, tile_map_position Pos) {
     tile_map_position Result = Pos;
 
-    RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.TileRelX);
-    RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.TileRelY);
+    RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.OffsetX);
+    RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.OffsetY);
 
     return Result;
+}
+
+
+inline bool32
+AreOnSameTile(tile_map_position *A, tile_map_position *B) {
+    return (A->AbsTileX == B->AbsTileX &&
+            A->AbsTileY == B->AbsTileY &&
+            A->AbsTileZ == B->AbsTileZ);
 }

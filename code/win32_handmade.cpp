@@ -841,6 +841,11 @@ WinMain(HINSTANCE Instance,
 
     WNDCLASS WindowClass = {};
 
+    /* NOTE: 1080p display mode is 1920x1080 -> Half of that is 960x540
+       1920 -> 2048 = 2048 - 1920 -> 128 pixels
+       1080 -> 2048 = 2048 - 1080 -> 968 pixels
+       1024 + 128 = 1152
+     */
     Win32ResizeDIBSection(&GlobalBackBuffer, 960, 540);
 
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
