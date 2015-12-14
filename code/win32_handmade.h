@@ -21,7 +21,7 @@ struct win32_sound_output {
     int BytesPerSample;
     DWORD SecondaryBufferSize;
     DWORD SafetyBytes;
-    int LatencySampleCount;
+
     // TODO: Should running sample index be in tyeps as well
     // TODO: Math gets simpler if we add a "bytes per second" field?
 };

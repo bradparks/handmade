@@ -1,17 +1,6 @@
 #ifndef HANDMADE_H
 #define HANDMADE_H
 
-/*
-  NOTE:
-
-  HANDMADE_INTERNAL:
-    0 - Build for public release
-    1 - Build for developer only
-
-  HANDMADE_SLOW:
-    0 - Not slow code allowd!
-    1 - Slow code welcome.
- */
 #include "handmade_platform.h"
 
 struct memory_arena {
