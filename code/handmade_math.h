@@ -76,4 +76,9 @@ inline v2 operator-(v2 A, v2 B) {
     return Result;
 }
 
+inline real32
+Square(real32 A) {
+    return A * A;
+}
+
 #endif

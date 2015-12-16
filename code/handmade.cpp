@@ -413,45 +413,49 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
         if (Controller->IsAnalog) {
         } else {
-            v2 dPlayer = {};
+            v2 ddPlayer = {};
 
             if (Controller->MoveUp.EndedDown) {
                 GameState->HeroFacingDirection = 1;
-                dPlayer.Y = 1.0f;
+                ddPlayer.Y = 1.0f;
             }
 
             if (Controller->MoveDown.EndedDown) {
                 GameState->HeroFacingDirection = 3;
-                dPlayer.Y = -1.0f;
+                ddPlayer.Y = -1.0f;
             }
 
             if (Controller->MoveLeft.EndedDown) {
                 GameState->HeroFacingDirection = 2;
-                dPlayer.X = -1.0f;
+                ddPlayer.X = -1.0f;
             }
 
             if (Controller->MoveRight.EndedDown) {
                 GameState->HeroFacingDirection = 0;
-                dPlayer.X = 1.0f;
+                ddPlayer.X = 1.0f;
             }
 
-            real32 PlayerSpeed = 2.0f;
+            if (ddPlayer.X != 0.0f && ddPlayer.Y != 0.0f) {
+                ddPlayer.X *= 0.707106781187f;
+                ddPlayer.Y *= 0.707106781187f;
+            }
+
+            real32 PlayerSpeed = 10.0f; // m/s^2
             if (Controller->ActionUp.EndedDown) {
-                PlayerSpeed = 10.0f;
+                PlayerSpeed = 50.0f; // m/s^2
             }
 
-            dPlayer.X *= PlayerSpeed;
-            dPlayer.Y *= PlayerSpeed;
+            ddPlayer *= PlayerSpeed;
 
-            if (dPlayer.X != 0.0f && dPlayer.Y != 0.0f) {
-                dPlayer.X *= 0.707106781187f;
-                dPlayer.Y *= 0.707106781187f;
-            }
+            // TODO: ODE here!
+            ddPlayer += -1.5f * GameState->dPlayerP;
 
-            // TODO: Diagonal will be faster! Fix once we have vectors :)
             tile_map_position NewPlayerP = GameState->PlayerP;
-            NewPlayerP.Offset.X += Input->dtForFrame * dPlayer.X;
-            NewPlayerP.Offset.Y += Input->dtForFrame * dPlayer.Y;
+            NewPlayerP.Offset = (0.5f * ddPlayer * Square(Input->dtForFrame) +
+                                 GameState->dPlayerP * Input->dtForFrame +
+                                 NewPlayerP.Offset);
+            GameState->dPlayerP = ddPlayer * Input->dtForFrame + GameState->dPlayerP;
+
             NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
             // TODO: Delta function that auto-recanonicalizes
 
