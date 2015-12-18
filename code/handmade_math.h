@@ -86,4 +86,9 @@ Inner(v2 A, v2 B) {
     return A.X * B.X + A.Y * B.Y;
 }
 
+inline real32
+LengthSq(v2 A) {
+    return Inner(A, A);
+}
+
 #endif
