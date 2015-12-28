@@ -1,10 +1,15 @@
 #ifndef HANDMADE_INTRINSICS_H
 #define HANDMADE_INTRINSICS_H
 
-#include "math.h"
-
 // TODO: Convert all of these to platform-efficient versions
 // and remove math.h
+
+#include "math.h"
+
+inline real32
+SquareRoot(real32 Real32) {
+    return sqrtf(Real32);
+}
 
 inline real32
 AbsoluteValue(real32 Real32) {
