@@ -246,8 +246,8 @@ InitializePlayer(game_state *GameState, uint32 EntityIndex) {
     Entity->Exists = true;
     Entity->P.AbsTileX = 1;
     Entity->P.AbsTileY = 3;
-    Entity->P.Offset.X = 5.0f;
-    Entity->P.Offset.Y = 5.0f;
+    Entity->P.Offset_.X = 0;
+    Entity->P.Offset_.Y = 0;
     Entity->Height = 1.4f;
     Entity->Width = 0.75f * Entity->Height;
 
@@ -301,10 +301,7 @@ MovePlayer(game_state *GameState, entity *Entity, real32 dt, v2 ddP) {
                      Entity->dP * dt);
     Entity->dP = ddP * dt + Entity->dP;
 
-    tile_map_position NewPlayerP = OldPlayerP;
-    NewPlayerP.Offset += PlayerDelta;
-    NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
-    // TODO: Delta function that auto-recanonicalizes
+    tile_map_position NewPlayerP = Offset(TileMap, OldPlayerP, PlayerDelta);
 
 #if 0
     tile_map_position PlayerLeft = NewPlayerP;
@@ -357,15 +354,33 @@ MovePlayer(game_state *GameState, entity *Entity, real32 dt, v2 ddP) {
         Entity->P = NewPlayerP;
     }
 #else
+
+#if 0
     uint32 MinTileX = Minimum(OldPlayerP.AbsTileX, NewPlayerP.AbsTileX);
     uint32 MinTileY = Minimum(OldPlayerP.AbsTileY, NewPlayerP.AbsTileY);
     uint32 OnePastMaxTileX = Maximum(OldPlayerP.AbsTileX, NewPlayerP.AbsTileX) + 1;
     uint32 OnePastMaxTileY = Maximum(OldPlayerP.AbsTileY, NewPlayerP.AbsTileY) + 1;
+#else
+    uint32 StartTileX = OldPlayerP.AbsTileX;
+    uint32 StartTileY = OldPlayerP.AbsTileY;
+    uint32 EndTileX = NewPlayerP.AbsTileX;
+    uint32 EndTileY = NewPlayerP.AbsTileY;
+
+    if (EndTileY > StartTileY) {
+        int x = 4;
+    }
+
+    int32 DeltaX = SignOf(EndTileX - StartTileX);
+    int32 DeltaY = SignOf(EndTileY - StartTileY);
+#endif
 
     uint32 AbsTileZ = Entity->P.AbsTileZ;
     real32 tMin = 1.0f;
-    for (uint32 AbsTileY = MinTileY; AbsTileY != OnePastMaxTileY; ++AbsTileY) {
-        for (uint32 AbsTileX = MinTileX; AbsTileX != OnePastMaxTileX; ++AbsTileX) {
+
+    uint32 AbsTileY = StartTileY;
+    for (;;) {
+        uint32 AbsTileX = StartTileX;
+        for (;;) {
             uint32 TileValue = GetTileValue(TileMap, AbsTileX, AbsTileY, AbsTileZ);
             tile_map_position TestTileP = CenteredTilePoint(AbsTileX, AbsTileY, AbsTileZ);
             if (!IsTileValueEmpty(TileValue)) {
@@ -396,13 +411,22 @@ MovePlayer(game_state *GameState, entity *Entity, real32 dt, v2 ddP) {
                 }
                 // TestWall(MinCorner.X, MinCorner.Y, MaxCorner.X, MaxCorner.Y, Rel.X);
             }
+
+            if (AbsTileX == EndTileX) {
+                break;
+            } else {
+                AbsTileX += DeltaX;
+            }
+        }
+
+        if (AbsTileY == EndTileY) {
+            break;
+        } else {
+            AbsTileY += DeltaY;
         }
     }
 
-    NewPlayerP = OldPlayerP;
-    NewPlayerP.Offset += tMin * PlayerDelta;
-    NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
-    Entity->P = NewPlayerP;
+    Entity->P = Offset(TileMap, OldPlayerP, tMin * PlayerDelta);
 #endif
 
     if (!AreOnSameTile(&OldPlayerP, &Entity->P)) {
@@ -503,8 +527,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
         uint32 TilesPerWidth = 17;
         uint32 TilesPerHeight = 9;
+#if 0
+        // TODO: Waiting for full sparseness.
+        uint32 ScreenX = INT32_MAX / 2;
+        uint32 ScreenY = INT32_MAX / 2;
+#else
         uint32 ScreenX = 0;
         uint32 ScreenY = 0;
+#endif
         uint32 AbsTileZ = 0;
 
         // TODO: Replace all this with real world generation!
@@ -705,8 +735,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                 }
 
                 v2 TileSide = {0.5f * TileSideInPixels, 0.5f * TileSideInPixels};
-                v2 Cen = {ScreenCenterX - MetersToPixels * GameState->CameraP.Offset.X + ((real32) RelColumn) * TileSideInPixels,
-                          ScreenCenterY + MetersToPixels * GameState->CameraP.Offset.Y - ((real32) RelRow) * TileSideInPixels};
+                v2 Cen = {ScreenCenterX - MetersToPixels * GameState->CameraP.Offset_.X + ((real32) RelColumn) * TileSideInPixels,
+                          ScreenCenterY + MetersToPixels * GameState->CameraP.Offset_.Y - ((real32) RelRow) * TileSideInPixels};
                 v2 Min = Cen - 0.9f * TileSide;
                 v2 Max = Cen + 0.9f * TileSide;
 
@@ -746,20 +776,3 @@ extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples) {
     game_state *GameState = (game_state *) Memory->PermanentStorage;
     GameOutputSound(GameState, SoundBuffer, 400);
 }
-
-/*
-internal void
-RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffset) {
-    uint8 *Row = (uint8 *) Buffer->Memory;
-    for (int Y = 0; Y < Buffer->Height; ++Y) {
-        uint32 *Pixel = (uint32 *) Row;
-        for (int X = 0; X < Buffer->Width; ++X) {
-            uint8 Blue = (uint8) (X + BlueOffset);
-            uint8 Green = (uint8) (Y + GreenOffset);
-            *Pixel++ = ((Green << 16) | Blue);
-        }
-
-        Row += Buffer->Pitch;
-    }
-}
-*/
