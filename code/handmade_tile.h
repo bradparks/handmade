@@ -11,41 +11,43 @@ struct tile_map_position {
     // NOTE: Thses are fixed point tile locations.  The high
     // bits are the tile chunk index, and the low bits are the tile
     // idex in the chunk.
-    uint32 AbsTileX;
-    uint32 AbsTileY;
-    uint32 AbsTileZ;
+    int32 AbsTileX;
+    int32 AbsTileY;
+    int32 AbsTileZ;
 
     // NOTE: These are the offset from tile center
     v2 Offset_;
 };
 
 struct tile_chunk_position {
-    uint32 TileChunkX;
-    uint32 TileChunkY;
-    uint32 TileChunkZ;
+    int32 TileChunkX;
+    int32 TileChunkY;
+    int32 TileChunkZ;
 
-    uint32 RelTileX;
-    uint32 RelTileY;
+    int32 RelTileX;
+    int32 RelTileY;
 };
 
 struct tile_chunk {
+    int32 TileChunkX;
+    int32 TileChunkY;
+    int32 TileChunkZ;
+
     // TODO: Real structure for a tile!
     uint32 *Tiles;
+
+    tile_chunk *NextInHash;
 };
 
 struct tile_map {
-    uint32 ChunkShift;
-    uint32 ChunkMask;
-    uint32 ChunkDim;
+    int32 ChunkShift;
+    int32 ChunkMask;
+    int32 ChunkDim;
 
     real32 TileSideInMeters;
 
-    // TODO: REAL sparseness so anywhere in the world can be
-    // represented withou the giant pointer array.
-    uint32 TileChunkCountX;
-    uint32 TileChunkCountY;
-    uint32 TileChunkCountZ;
-    tile_chunk *TileChunks;
+    // NOTE: At the moment, this must be a power of two!
+    tile_chunk TileChunkHash[4096];
 };
 
 #endif
