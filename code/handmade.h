@@ -32,11 +32,7 @@ PushSize_(memory_arena *Arena, memory_index Size) {
 
 #include "handmade_math.h"
 #include "handmade_intrinsics.h"
-#include "handmade_tile.h"
-
-struct world {
-    tile_map *TileMap;
-};
+#include "handmade_world.h"
 
 struct loaded_bitmap {
     int32 Width;
@@ -75,7 +71,7 @@ enum entity_type {
 struct low_entity {
     entity_type Type;
 
-    tile_map_position P;
+    world_position P;
     real32 Width, Height;
 
     // NOTE: This is for "stairs"
@@ -97,7 +93,7 @@ struct game_state {
 
     // TODO: Should we allow split-screen?
     uint32 CameraFollowingEntityIndex;
-    tile_map_position CameraP;
+    world_position CameraP;
 
     uint32 PlayerIndexForController[ArrayCount(((game_input *) 0)->Controllers)];
 
