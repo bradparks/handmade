@@ -120,7 +120,7 @@ RecanonicalizeCoord(world *World, int32 *Tile, real32 *TileRel) {
 }
 
 inline world_position
-MapIntoTileSpace(world *World, world_position BasePos, v2 Offset) {
+MapIntoChunkSpace(world *World, world_position BasePos, v2 Offset) {
     world_position Result = BasePos;
 
     Result.Offset_ += Offset;
@@ -138,6 +138,7 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int3
     Result.ChunkY = AbsTileY / TILES_PER_CHUNK;
     Result.ChunkZ = AbsTileZ / TILES_PER_CHUNK;
 
+    // TODO: DECIDE ON TILE ALIGNMENT IN CHUNKS!
     Result.Offset_.X = (AbsTileX - (Result.ChunkX * TILES_PER_CHUNK)) * World->TileSideInMeters;
     Result.Offset_.Y = (AbsTileY - (Result.ChunkY * TILES_PER_CHUNK)) * World->TileSideInMeters;
     // TODO: Move to 3D Z!!!
@@ -182,9 +183,10 @@ ChangeEntityLocation(memory_arena *Arena, world *World, uint32 LowEntityIndex,
             world_chunk *Chunk = GetWorldChunk(World, OldP->ChunkX, OldP->ChunkY, OldP->ChunkZ);
             Assert(Chunk);
             if (Chunk) {
+                bool32 NotFound = true;
                 world_entity_block *FirstBlock = &Chunk->FirstBlock;
-                for (world_entity_block *Block = FirstBlock; Block; Block = Block->Next) {
-                    for (uint32 Index = 0; Index < Block->EntityCount; ++Index) {
+                for (world_entity_block *Block = FirstBlock; Block && NotFound; Block = Block->Next) {
+                    for (uint32 Index = 0; Index < Block->EntityCount && NotFound; ++Index) {
                         if (Block->LowEntityIndex[Index] == LowEntityIndex) {
                             Assert(FirstBlock->EntityCount > 0);
                             Block->LowEntityIndex[Index] =
@@ -199,8 +201,7 @@ ChangeEntityLocation(memory_arena *Arena, world *World, uint32 LowEntityIndex,
                                 }
                             }
 
-                            Block = 0;
-                            break;
+                            NotFound = false;
                         }
                     }
                 }
