@@ -132,6 +132,11 @@ LengthSq(v2 A) {
     return Inner(A, A);
 }
 
+inline real32
+Length(v2 A) {
+    return SquareRoot(LengthSq(A));
+}
+
 struct rectangle2 {
     v2 Min;
     v2 Max;

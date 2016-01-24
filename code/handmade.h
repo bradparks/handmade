@@ -30,8 +30,8 @@ PushSize_(memory_arena *Arena, memory_index Size) {
     return Result;
 }
 
-#include "handmade_math.h"
 #include "handmade_intrinsics.h"
+#include "handmade_math.h"
 #include "handmade_world.h"
 
 struct loaded_bitmap {
