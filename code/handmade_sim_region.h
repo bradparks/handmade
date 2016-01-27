@@ -24,6 +24,7 @@ struct hit_point {
     uint8 FilledAmount;
 };
 
+// TODO: Rename sim_entity to entity
 struct sim_entity;
 union entity_reference {
     sim_entity *Ptr;
@@ -66,6 +67,8 @@ struct sim_entity_hash {
 };
 
 struct sim_region {
+    world *World;
+
     // TODO: Need a hash table here to map stored entity indices
     // to sim entities!
     world_position Origin;
@@ -77,7 +80,7 @@ struct sim_region {
 
     // TODO: Do I really want a hash for this?
     // NOTE: Must be a power of two!
-    sim_entity_hash *Hash[4096];
+    sim_entity_hash Hash[4096];
 };
 
 #endif

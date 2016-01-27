@@ -6,10 +6,11 @@ GetHashFromStorageIndex(sim_region *SimRegion, uint32 StorageIndex) {
 
     uint32 HashValue = StorageIndex;
     for (uint32 Offset = 0; Offset < ArrayCount(SimRegion->Hash); ++Offset) {
-        sim_entity_hash *Entry = SimRegion->Hash +
-            ((HashValue + Offset) & (ArrayCount(SimRegion->Hash) - 1));
+        uint32 HashMask = ArrayCount(SimRegion->Hash) - 1;
+        uint32 HashIndex = (HashValue + Offset) & HashMask;
+        sim_entity_hash *Entry = SimRegion->Hash + HashIndex;
         if (Entry->Index == 0 || Entry->Index == StorageIndex) {
-            Result = Entry->Ptr;
+            Result = Entry;
             break;
         }
     }
@@ -27,16 +28,16 @@ MapStorageIndexToEntity(sim_region *SimRegion, uint32 StorageIndex, sim_entity *
 
 inline sim_entity *
 GetEntityByStorageIndex(sim_region *SimRegion, uint32 StorageIndex) {
-    sim_entity_hash Entry = GetHashFromStorageIndex(SimRegion, StorageIndex);
+    sim_entity_hash *Entry = GetHashFromStorageIndex(SimRegion, StorageIndex);
     sim_entity *Result = Entry->Ptr;
     return Result;
 }
 
-internal sim_entity *AddEntity(game_state *GameState, sim_region *SimRegion, uin32 StorageIndex, low_entity *Source);
+internal sim_entity *AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source);
 inline void
 LoadEntityReference(game_state *GameState, sim_region *SimRegion, entity_reference *Ref) {
     if (Ref->Index) {
-        sim_entity_hash *Entry = GetHashFromStorageIndex(SimRegion, StorageIndex);
+        sim_entity_hash *Entry = GetHashFromStorageIndex(SimRegion, Ref->Index);
         if (Entry->Ptr == 0) {
             Entry->Index = Ref->Index;
             Entry->Ptr = AddEntity(GameState, SimRegion, Ref->Index, GetLowEntity(GameState, Ref->Index));
@@ -54,13 +55,14 @@ StoreEntityReference(entity_reference *Ref) {
 }
 
 internal sim_entity *
-AddEntity(game_state *GameState, sim_region *SimRegion, uin32 StorageIndex, low_entity *Source) {
+AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source) {
     Assert(StorageIndex);
 
     sim_entity *Entity = 0;
 
     if (SimRegion->EntityCount < SimRegion->MaxEntityCount) {
         Entity = SimRegion->Entities + SimRegion->EntityCount++;
+        MapStorageIndexToEntity(SimRegion, StorageIndex, Entity);
 
         // TODO: This should really be a decompression step, not
         // a copy!
@@ -70,7 +72,6 @@ AddEntity(game_state *GameState, sim_region *SimRegion, uin32 StorageIndex, low_
         }
 
         Entity->StorageIndex = StorageIndex;
-        MapStorageIndexToEntity(SimRegion, StorageIndex, Entity);
     } else {
         InvalidCodePath;
     }
@@ -86,24 +87,27 @@ GetSimSpaceP(sim_region *SimRegion, low_entity *Stored) {
 }
 
 internal sim_entity *
-AddEntity(game_state GameState, sim_region *SimRegion, uin32 StorageIndex, low_entity *Source, v2 *SimP) {
+AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source, v2 *SimP) {
     sim_entity *Dest = AddEntity(GameState, SimRegion, StorageIndex, Source);
     if (Dest) {
         if (SimP) {
             Dest->P = *SimP;
         } else {
-            Dest->P = GetRegionpaceP(SimRegion, Source);
+            Dest->P = GetSimSpaceP(SimRegion, Source);
         }
     }
+    return Dest;
 }
 
 internal sim_region *
 BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_position Origin, rectangle2 Bounds) {
     // TODO: If entities were stored in the world, wouldn't need the game state here!
 
-    // TODO IMPORTANT: CLEAR THE HASH TABLE!!!
     // TODO IMPORTANT: MOTION OF ACTIVE vs. INACTIVE ENTITIES FOR THE APRON!
+
     sim_region *SimRegion = PushStruct(SimArena, sim_region);
+    ZeroStruct(SimRegion->Hash);
+
     SimRegion->World = World;
     SimRegion->Origin = Origin;
     SimRegion->Bounds = Bounds;
@@ -135,6 +139,8 @@ BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_posi
             }
         }
     }
+
+    return SimRegion;
 }
 
 internal void
@@ -144,6 +150,7 @@ EndSim(sim_region *Region, game_state *GameState) {
     sim_entity *Entity = Region->Entities;
     for (uint32 EntityIndex = 0; EntityIndex < Region->EntityCount; ++EntityIndex) {
         low_entity *Stored = GameState->LowEntities + Entity->StorageIndex;
+
         Stored->Sim = *Entity;
         StoreEntityReference(&Stored->Sim.Sword);
 
@@ -205,7 +212,7 @@ TestWall(real32 WallX, real32 RelX, real32 RelY, real32 PlayerDeltaX, real32 Pla
 
 internal void
 MoveEntity(sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *MoveSpec, v2 ddP) {
-    world *World = GameState->World;
+    world *World = SimRegion->World;
 
     if (MoveSpec->UnitMaxAccelVector) {
         real32 ddPLength = LengthSq(ddP);
