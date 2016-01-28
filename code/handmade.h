@@ -44,6 +44,7 @@ ZeroSize(memory_index Size, void *Ptr) {
 #include "handmade_math.h"
 #include "handmade_world.h"
 #include "handmade_sim_region.h"
+#include "handmade_entity.h"
 
 struct loaded_bitmap {
     int32 Width;
@@ -60,6 +61,9 @@ struct hero_bitmaps {
 };
 
 struct low_entity {
+    // TODO: It's kind of busted that P's can be invliad here,
+    // AND we store whether they would be invliad in the falgs field...
+    // Can we do something better there?
     world_position P;
     sim_entity Sim;
 };
