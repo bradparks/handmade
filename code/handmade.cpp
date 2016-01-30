@@ -692,8 +692,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                             if (ConHero->dSword.X != 0.0f || ConHero->dSword.Y != 0.0f) {
                                 sim_entity *Sword = Entity->Sword.Ptr;
                                 if (Sword && IsSet(Sword, EntityFlag_Nonspatial)) {
-                                    Sword->DistanceRemaining = 5.0f;
-                                    MakeEntitySpatial(Sword, Entity->P, 5.0f * ConHero->dSword);
+                                    Sword->DistanceLimit = 5.0f;
+                                    MakeEntitySpatial(Sword, Entity->P,
+                                                      Entity->dP + 5.0f * ConHero->dSword);
                                 }
                             }
                         }
@@ -721,14 +722,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                      // routines to understand a movement limit for an entity, and
                      // then update this routine to use that to know when to kill the
                      // sword.
-                     v2 OldP = Entity->P;
-                     real32 DistanceTraveled = Length(Entity->P - OldP);
-
                      // TODO: Need to handle the fact that DistanceTravled
                      // might not have enough distance for the total entity move
                      // for the frame!
-                     Entity->DistanceRemaining -= DistanceTraveled;
-                     if (Entity->DistanceRemaining < 0.0f) {
+                     if (Entity->DistanceLimit == 0.0f) {
                          MakeEntityNonspatial(Entity);
                      }
                      PushBitmap(&PieceGroup, &GameState->Shadow, V2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
