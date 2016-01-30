@@ -192,10 +192,10 @@ typedef struct game_input {
 typedef struct game_memory {
     bool32 IsInitialized;
 
-    uint64 PermanentStorageSize;
+    memory_index PermanentStorageSize;
     void *PermanentStorage; // NOTE: REQUIRED to be cleared to zero at startup
 
-    uint64 TransientStorageSize;
+    memory_index TransientStorageSize;
     void *TransientStorage; // NOTE: REQUIRED to be cleared to zero at startup
 
     debug_platform_free_file_memory *DEBUGPlatformFreeFileMemory;

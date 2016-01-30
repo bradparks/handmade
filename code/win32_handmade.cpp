@@ -947,7 +947,7 @@ WinMain(HINSTANCE Instance,
             if (Win32RefreshRate > 1) {
                 MonitorRefreshHz = Win32RefreshRate;
             }
-            real32 GameUpdateHz = MonitorRefreshHz / 2;
+            real32 GameUpdateHz = MonitorRefreshHz / 2.0f;
             real32 TargetSecondsPerFrame = 1.0f / GameUpdateHz;
 
             SoundOutput.SamplesPerSecond = 48000;
@@ -1264,7 +1264,7 @@ WinMain(HINSTANCE Instance,
                             DWORD BytesToLock = ((SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample)
                                                  % SoundOutput.SecondaryBufferSize);
 
-                            DWORD ExpectedSoundBytesPerFrame = (SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample) / GameUpdateHz;
+                            DWORD ExpectedSoundBytesPerFrame = (DWORD) ((SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample) / GameUpdateHz);
                             real32 SecondsLeftUntilFlip = (TargetSecondsPerFrame - FromBeginToAudioSeconds);
                             DWORD ExpectedBytesUntilFlip = (DWORD) ((SecondsLeftUntilFlip / TargetSecondsPerFrame) * (real32) ExpectedSoundBytesPerFrame);
                             DWORD ExpectedFrameBoundaryByte = PlayCursor + ExpectedBytesUntilFlip;
@@ -1372,12 +1372,12 @@ WinMain(HINSTANCE Instance,
                         FlipWallClock = Win32GetWallClock();
 #if HANDMADE_INTERNAL
                         {
-                            DWORD PlayCursor, WriteCursor;
-                            if (GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor) == DS_OK) {
+                            DWORD PC, WC;
+                            if (GlobalSecondaryBuffer->GetCurrentPosition(&PC, &WC) == DS_OK) {
                                 Assert(DebugTimeMarkerIndex < ArrayCount(DebugTimeMarkers));
                                 win32_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex];
-                                Marker->FlipPlayCursor = PlayCursor;
-                                Marker->FlipWriteCursor = WriteCursor;
+                                Marker->FlipPlayCursor = PC;
+                                Marker->FlipWriteCursor = WC;
                             }
                         }
 #endif

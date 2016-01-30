@@ -1,9 +1,16 @@
 #!/bin/sh
 
-mkdir ../build
+CommonCompilerFlags="-MTd -nologo -fp:fast -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -DHANDMADE_INTERNAL=1 -DHANDMADE_SLOW=1 -DHANDMADE_WIN32=1 -FC -Z7"
+CommonLinkerFlags="-incremental:no -opt:ref user32.lib gdi32.lib winmm.lib"
+
+[ ! -d "../build" ] && mkdir ../build
 pushd ../build
+
+rm -f *.pdb
 echo WAITING FOR PDB > lock.tmp
-g++ -g -Wall -Wno-unused-variable -DCOMPILER_MSVC=1 -DHANDMADE_INTERNAL=1 -DHANDMADE_SLOW=1 -DHANDMADE_WIN32=1 -g -std=c++11 ../code/handmade.cpp -o handmade.dll -shared
+cl $CommonCompilerFlags ../code/handmade.cpp -Fmhandmade.map -LD /link -incremental:no -opt:ref -PDB:handmade_$RANDOM.pdb -EXPORT:GameGetSoundSamples -EXPORT:GameUpdateAndRender
+
 rm lock.tmp
-g++ -g -Wall -Wno-unused-variable -DCOMPILER_MSVC=1 -DHANDMADE_INTERNAL=1 -DHANDMADE_SLOW=1 -DHANDMADE_WIN32=1 -g -std=c++11 ../code/win32_handmade.cpp -o handmade.exe -luser32 -lgdi32 -lwinmm
+cl $CommonCompilerFlags ../code/win32_handmade.cpp -Fmwin32_handmade.map /link $CommonLinkerFlags
+
 popd
