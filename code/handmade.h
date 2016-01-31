@@ -1,6 +1,58 @@
 #ifndef HANDMADE_H
 #define HANDMADE_H
 
+/*
+ * TODO:
+ *
+ * ARCHITECTURE EXPLORATION
+ * - Collision detection?
+ *   - Entry/exit?
+ *   - What's the plan for robustness / shape definition?
+ * - Implement multiple sim regions per frame
+ *   - Per-entity clocking
+ *   - Sim region merging? For multiple players?
+ * - Z!
+ *   - Clean up things by using v3
+ *   - Figure out how you go "up" and "down", and how is this rendered?
+ *
+ * - Debug code
+ *   - Logging
+ *   - Diagramming
+ *   - (A LITTLE GUI, but only a little!) Switches / sliders / etc.
+ *
+ * - Audio
+ *   - Sound effect triggers
+ *   - Ambient sounds
+ *   - Music
+ * - Asset streaming
+ *
+ * - Metagame / save game?
+ *   - How do you enter "save slot"?
+ *   - Persistent unlocks/etc.
+ *   - Do we allow saved games? Probably yes, just only for "pausing".
+ *   * Continuous save for or crash recovery?
+ * - Rudimentary world gen (no quality, just "what sorts of things" we do)
+ *   - Placement of background things
+ *   - Connectivity?
+ *   - Non-overlapping?
+ *   - Map display
+ *     - Magnets - how they work???
+ * - AI
+ *   - Rudimentary monstar behavior example
+ *   * Pathfinding
+ *   - AI "storage"
+ *
+ * * Animation, Should probably lead into rendering
+ *   - Skeletal animation
+ *   - Particle systems
+ *
+ * PRODUCTION
+ * - Rendering
+ * -> GAME
+ *   - Entity system
+ *   - World generation
+ */
+
 #include "handmade_platform.h"
 
 #define Minimum(A, B) ((A < B) ? (A) : (B))
