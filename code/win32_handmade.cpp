@@ -718,6 +718,7 @@ Win32ProcessPendingMessage(win32_state *State, game_controller_input *KeyboardCo
               Win32ProcessKeyboardMessage(&KeyboardController->ActionDown, IsDown);
             } else if (VKCode == VK_ESCAPE) {
                 Win32ProcessKeyboardMessage(&KeyboardController->Back, IsDown);
+                GlobalRunning = false;
             } else if (VKCode == VK_SPACE) {
                 Win32ProcessKeyboardMessage(&KeyboardController->Start, IsDown);
             }
