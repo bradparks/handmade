@@ -2,10 +2,11 @@
 #define HANDMADE_WORLD_H
 
 struct world_position {
-    // TODO: Puzzler! How can we get rid of abstile* here,
-    // and still allow references to entities to be able to figuer
-    // out _where they are_ (or rather, which world_chunk they are
-    // in?)
+    // TODO: It seems like we have to store ChunkX/Y/Z with each
+    // entity because even though this sim region gather doesn't need it
+    // at first, and we could get by without it, entity references pull
+    // it entities WITHOUT going through their world_chunk, and thus
+    // still need to know the ChunkX/Y/Z.
 
     int32 ChunkX;
     int32 ChunkY;

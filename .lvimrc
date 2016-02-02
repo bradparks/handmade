@@ -10,5 +10,3 @@ endif
 
 let &makeprg = 'cd ' . g:coeuvre_project_root . ' && ' . s:build_script
 let g:coeuvre_project_run_cmd = '!cd ' . g:coeuvre_project_root . '&& ' . s:run_script
-nnoremap <silent> <leader>bb :make <cr>
-nnoremap <silent> <leader>br :execute g:coeuvre_project_run_cmd<cr>

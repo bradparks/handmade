@@ -6,12 +6,12 @@
  *
  * ARCHITECTURE EXPLORATION
  * - Z!
- *   - Minkowski inclusion test for sim region begin / updatable bounds!
  *   - Figure out how you go "up" and "down", and how is this rendered?
- *   - SOLVE THE PUZZLER from world_position
+ *     "Frinstances"!
  * - Collision detection?
  *   - Entry/exit?
  *   - What's the plan for robustness / shape definition?
+ *   - (Implement reprojection to handle interpenetration)
  * - Implement multiple sim regions per frame
  *   - Per-entity clocking
  *   - Sim region merging? For multiple players?

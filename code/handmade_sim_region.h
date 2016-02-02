@@ -41,6 +41,7 @@ enum sim_entity_flags {
 
 struct sim_entity {
     // NOTE: These are only for the sim region
+    world_chunk *OldChunk;
     uint32 StorageIndex;
     bool32 Updatable;
 
@@ -54,7 +55,7 @@ struct sim_entity {
 
     real32 DistanceLimit;
 
-    real32 Width, Height;
+    v3 Dim;
 
     uint32 FacingDirection;
     real32 tBob;
@@ -77,6 +78,8 @@ struct sim_entity_hash {
 
 struct sim_region {
     world *World;
+    real32 MaxEntityRadius;
+    real32 MaxEntityVelocity;
 
     // TODO: Need a hash table here to map stored entity indices
     // to sim entities!
