@@ -5,15 +5,17 @@
  * TODO:
  *
  * ARCHITECTURE EXPLORATION
+ * - Z!
+ *   - 3D collision detection working properly!
+ *   - Figure out how you go "up" and "down", and how is this rendered?
+ *     "Frinstances"!
  * - Collision detection?
  *   - Transient collision rules! Clear based on flags.
  *     - Allow non-transient rules to override transient ones.
  *     - Entry/exit?
  *   - What's the plan for robustness / shape definition?
  *   - (Implement reprojection to handle interpenetration)
- * - Z!
- *   - Figure out how you go "up" and "down", and how is this rendered?
- *     "Frinstances"!
+ *   - "Things pushing other things"
  * - Implement multiple sim regions per frame
  *   - Per-entity clocking
  *   - Sim region merging? For multiple players?
@@ -142,12 +144,8 @@ struct controlled_hero {
     real32 dZ;
 };
 
-enum pairwise_collision_rule_flag {
-    PairCollisionFlag_ShouldCollide = 0x1,
-    PairCollisionFlag_Temporary = 0x2,
-};
 struct pairwise_collision_rule {
-    bool32 ShouldCollide;
+    bool32 CanCollide;
     uint32 StorageIndexA;
     uint32 StorageIndexB;
 
