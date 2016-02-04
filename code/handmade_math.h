@@ -110,9 +110,9 @@ Clamp(real32 Min, real32 Value, real32 Max) {
     real32 Result = Value;
 
     if (Result < Min) {
-        Result = Value;
+        Result = Min;
     } else if (Result > Max) {
-        Result = Value;
+        Result = Max;
     }
 
     return Result;
