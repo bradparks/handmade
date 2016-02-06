@@ -1,12 +1,11 @@
 let g:coeuvre_project_root = g:localvimrc_script_dir
 
 if WINDOWS()
-    let s:build_script = "build.bat"
-    let s:run_script = "run.bat"
+    let &makeprg = 'cd ' . g:coeuvre_project_root . ' && build.bat'
+    nnoremap <silent> <leader>br :execute '!cd ' . g:coeuvre_project_root . ' && run.bat'<cr>
 else
-    let s:build_script = "./build.sh"
-    let s:run_script = "./run.sh"
+    let &makeprg = 'cd ' . g:coeuvre_project_root . ' && clear && ./build.sh'
+    nnoremap <silent> <leader>br :VimuxRunCommand("cd " . g:coeuvre_project_root . g:coeuvre_shell_cmd_and . "clear" . g:coeuvre_shell_cmd_and . "./run.sh")<cr>
 endif
 
-let &makeprg = 'cd ' . g:coeuvre_project_root . ' && ' . s:build_script
-let g:coeuvre_project_run_cmd = '!cd ' . g:coeuvre_project_root . '&& ' . s:run_script
+nnoremap <silent> <leader>bb :make <cr><cr><cr>
