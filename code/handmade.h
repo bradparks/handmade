@@ -192,6 +192,14 @@ struct game_state {
     // TODO: Must be power of two
     pairwise_collision_rule *CollisionRuleHash[256];
     pairwise_collision_rule *FirstFreeCollisionRule;
+
+    sim_entity_collision_volume_group *NullCollision;
+    sim_entity_collision_volume_group *SwordCollision;
+    sim_entity_collision_volume_group *StairCollision;
+    sim_entity_collision_volume_group *PlayerCollision;
+    sim_entity_collision_volume_group *MonstarCollision;
+    sim_entity_collision_volume_group *FamiliarCollision;
+    sim_entity_collision_volume_group *WallCollision;
 };
 
 // TODO: This is dump, this should just be part of
