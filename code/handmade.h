@@ -15,6 +15,7 @@
  *     "Frinstances"!
  *     ZFudge!
  * - Collision detection?
+ *   - Fix sword collisions!
  *   - Clean up predicate proliferation! Can we make a nice clean
  *     set of flags/rules so that it's easy to understand how
  *     things work in terms of special handling? This mya involve
@@ -36,11 +37,12 @@
  *   - (A LITTLE GUI, but only a little!) Switches / sliders / etc.
  *   - Draw tile chunks so we can verify things are aligned / in the chunks we wangt them to be in / etc.
  *
+ * - Asset streaming
+ *
  * - Audio
  *   - Sound effect triggers
  *   - Ambient sounds
  *   - Music
- * - Asset streaming
  *
  * - Metagame / save game?
  *   - How do you enter "save slot"?
