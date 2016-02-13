@@ -119,7 +119,8 @@ ZeroSize(memory_index Size, void *Ptr) {
 struct loaded_bitmap {
     int32 Width;
     int32 Height;
-    uint32 *Pixels;
+    int32 Pitch;
+    void *Memory;
 };
 
 struct hero_bitmaps {

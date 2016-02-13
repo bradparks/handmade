@@ -130,12 +130,12 @@ typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
  * NOTE: Services that the game provides to the platform layer.
  */
 
+#define LOADED_BITMAP_BYTES_PER_PIXEL 4
 typedef struct game_offscreen_buffer {
     void *Memory;
     int Width;
     int Height;
     int Pitch;
-    int BytesPerPixel;
 } game_offscreen_buffer;
 
 typedef struct game_sound_output_buffer {

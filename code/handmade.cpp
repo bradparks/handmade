@@ -63,7 +63,7 @@ DrawRectangle(game_offscreen_buffer *Buffer, v2 vMin, v2 vMax, real32 R, real32 
 
 
     uint8 *Row = ((uint8 *) Buffer->Memory +
-                    MinX * Buffer->BytesPerPixel +
+                    MinX * LOADED_BITMAP_BYTES_PER_PIXEL +
                     MinY * Buffer->Pitch);
 
     for (int Y = MinY; Y < MaxY; ++Y) {
@@ -76,7 +76,7 @@ DrawRectangle(game_offscreen_buffer *Buffer, v2 vMin, v2 vMax, real32 R, real32 
 }
 
 internal void
-DrawBitmap(game_offscreen_buffer *Buffer, loaded_bitmap *Bitmap,
+DrawBitmap(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
            real32 RealX, real32 RealY, real32 CAlpha = 1.0) {
     int MinX = RoundReal32ToInt32(RealX);
     int MinY = RoundReal32ToInt32(RealY);
@@ -103,15 +103,14 @@ DrawBitmap(game_offscreen_buffer *Buffer, loaded_bitmap *Bitmap,
         MaxY = Buffer->Height;
     }
 
-    // TODO: SourceRow needs to be changed based on clipping.
-    uint32 *SourceRow = Bitmap->Pixels + Bitmap->Width * (Bitmap->Height - 1);
-    SourceRow += -Bitmap->Width * SourceOffsetY + SourceOffsetX;
+    int32 BytesPerPixel = LOADED_BITMAP_BYTES_PER_PIXEL;
+    uint8 *SourceRow = (uint8 *)Bitmap->Memory + SourceOffsetY * Bitmap->Pitch + BytesPerPixel * SourceOffsetX;
     uint8 *DestRow = ((uint8 *) Buffer->Memory +
-                  MinX * Buffer->BytesPerPixel +
-                  MinY * Buffer->Pitch);
+                      MinX * BytesPerPixel +
+                      MinY * Buffer->Pitch);
     for (int32 Y = MinY; Y < MaxY; ++Y) {
         uint32 *Dest = (uint32 *) DestRow;
-        uint32 *Source = SourceRow;
+        uint32 *Source = (uint32 *) SourceRow;
         for (int32 X = MinX; X < MaxX; ++X) {
             real32 A = (real32) ((*Source >> 24) & 0xFF) / 255.0f;
             A *= CAlpha;
@@ -138,7 +137,7 @@ DrawBitmap(game_offscreen_buffer *Buffer, loaded_bitmap *Bitmap,
             ++Source;
         }
         DestRow += Buffer->Pitch;
-        SourceRow -= Bitmap->Width;
+        SourceRow += Bitmap->Pitch;
     }
 }
 
@@ -222,6 +221,10 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
             }
         }
     }
+
+    int32 BytesPerPixel = LOADED_BITMAP_BYTES_PER_PIXEL;
+    Result.Pitch = -Result.Width * BytesPerPixel;
+    Result.Pixels = (uint8 *) Result.Pixels - Result.Pitch * (Result.Height - 1);
 
     return Result;
 }
@@ -520,37 +523,31 @@ MakeNullCollision(game_state *GameState) {
 internal void
 DrawTestGround(game_state *GameState, game_offscreen_buffer *Buffer) {
     // TODO: Make random number generation more systemic
-    uint32 RandomNumberIndex = 0;
+    random_series Series = Seed(1234);
 
     v2 Center = 0.5f * V2i(Buffer->Width, Buffer->Height);
     for (uint32 GrassIndex = 0; GrassIndex < 100; ++GrassIndex) {
-        Assert(RandomNumberIndex < ArrayCount(RandomNumberTable));
-
         loaded_bitmap *Stamp;
-        if (RandomNumberTable[RandomNumberIndex++] % 2) {
-            Stamp = GameState->Grass + (RandomNumberTable[RandomNumberIndex++] % ArrayCount(GameState->Grass));
+        if (RandomChoice(&Series, 2)) {
+            Stamp = GameState->Grass + RandomChoice(&Series, ArrayCount(GameState->Grass));
         } else {
-            Stamp = GameState->Stone + (RandomNumberTable[RandomNumberIndex++] % ArrayCount(GameState->Stone));
+            Stamp = GameState->Stone + RandomChoice(&Series, ArrayCount(GameState->Stone));
         }
 
         real32 Radius = 5.0f;
         v2 BitmapCenter = 0.5f * V2i(Stamp->Width, Stamp->Height);
-        v2 Offset = {2.0f * (real32) RandomNumberTable[RandomNumberIndex++] / (real32) MaxRandomNumber - 1,
-                     2.0f * (real32) RandomNumberTable[RandomNumberIndex++] / (real32) MaxRandomNumber - 1};
+        v2 Offset = { RandomBilateral(&Series), RandomBilateral(&Series) };
 
         v2 P = Center + GameState->MetersToPixels * Radius * Offset - BitmapCenter;
         DrawBitmap(Buffer, Stamp, P.X, P.Y);
     }
 
     for (uint32 GrassIndex = 0; GrassIndex < 100; ++GrassIndex) {
-        Assert(RandomNumberIndex < ArrayCount(RandomNumberTable));
-
-        loaded_bitmap *Stamp = GameState->Tuft + (RandomNumberTable[RandomNumberIndex++] % ArrayCount(GameState->Tuft));
+        loaded_bitmap *Stamp = GameState->Tuft + RandomChoice(&Series, ArrayCount(GameState->Tuft));
 
         real32 Radius = 5.0f;
         v2 BitmapCenter = 0.5f * V2i(Stamp->Width, Stamp->Height);
-        v2 Offset = {2.0f * (real32) RandomNumberTable[RandomNumberIndex++] / (real32) MaxRandomNumber - 1,
-                     2.0f * (real32) RandomNumberTable[RandomNumberIndex++] / (real32) MaxRandomNumber - 1};
+        v2 Offset = { RandomBilateral(&Series), RandomBilateral(&Series) };
 
         v2 P = Center + GameState->MetersToPixels * Radius * Offset - BitmapCenter;
         DrawBitmap(Buffer, Stamp, P.X, P.Y);
@@ -660,7 +657,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_torso.bmp");
         Bitmap->Align = V2(72, 182);
 
-        uint32 RandomNumberIndex = 0;
+        random_series Series = Seed(1234);
 
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
@@ -679,32 +676,26 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
         for (uint32 ScreenIndex = 0; ScreenIndex < 2000; ++ScreenIndex) {
             // TODO: Random number generator!
-            Assert(RandomNumberIndex < ArrayCount(RandomNumberTable));
-            uint32 RandomChoice;
-            if (DoorUp || DoorDown) {
-                RandomChoice = RandomNumberTable[RandomNumberIndex++] % 2;
-            } else {
-                RandomChoice = RandomNumberTable[RandomNumberIndex++] % 3;
-            }
+            uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 3);
 
             bool32 CreatedZDoor = false;
-            if (RandomChoice == 2) {
+            if (DoorDirection == 2) {
                 CreatedZDoor = true;
                 if (AbsTileZ == ScreenBaseZ) {
                     DoorUp = true;
                 } else {
                     DoorDown = true;
                 }
-            } else if (RandomChoice == 1) {
+            } else if (DoorDirection == 1) {
                 DoorRight = true;
             } else {
                 DoorTop = true;
             }
 
             AddStandardRoom(GameState,
-                     ScreenX * TilesPerWidth + TilesPerWidth / 2,
-                     ScreenY * TilesPerHeight + TilesPerHeight / 2,
-                     AbsTileZ);
+                            ScreenX * TilesPerWidth + TilesPerWidth / 2,
+                            ScreenY * TilesPerHeight + TilesPerHeight / 2,
+                            AbsTileZ);
 
             for (uint32 TileY = 0; TileY < TilesPerHeight; ++TileY) {
                 for (uint32 TileX = 0; TileX < TilesPerWidth; ++TileX) {
@@ -756,13 +747,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
             DoorRight = false;
             DoorTop = false;
 
-            if (RandomChoice == 2) {
+            if (DoorDirection == 2) {
                 if (AbsTileZ == ScreenBaseZ) {
                     AbsTileZ = ScreenBaseZ + 1;
                 } else {
                     AbsTileZ = ScreenBaseZ;
                 }
-            } else if (RandomChoice == 1) {
+            } else if (DoorDirection == 1) {
                 ScreenX += 1;
             } else {
                 ScreenY += 1;
@@ -781,8 +772,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
         AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
         for (int FamiliarIndex = 0; FamiliarIndex < 1; ++FamiliarIndex) {
-            int32 FamiliarOffsetX = RandomNumberTable[RandomNumberIndex++] % 10 - 7;
-            int32 FamiliarOffsetY = RandomNumberTable[RandomNumberIndex++] % 10 - 3;
+            int32 FamiliarOffsetX = RandomBetween(&Series, -7, 7);
+            int32 FamiliarOffsetY = RandomBetween(&Series, -3, -1);
             if (FamiliarOffsetX != 0 || FamiliarOffsetY != 0) {
                 AddFamiliar(GameState, CameraTileX + FamiliarOffsetX, CameraTileY + FamiliarOffsetY, CameraTileZ);
             }
@@ -881,8 +872,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     entity_visible_piece_group PieceGroup;
     PieceGroup.GameState = GameState;
     sim_entity *Entity = SimRegion->Entities;
-    for (uint32 EntityIndex = 0; EntityIndex < SimRegion->EntityCount;
-         ++EntityIndex, ++Entity) {
+    for (uint32 EntityIndex = 0;
+         EntityIndex < SimRegion->EntityCount;
+         ++EntityIndex, ++Entity)
+    {
         if (Entity->Updatable) {
             PieceGroup.PieceCount = 0;
             real32 dt = Input->dtForFrame;
@@ -1001,11 +994,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                 } break;
 
                 case EntityType_Space: {
+#if 0
                     for (uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex) {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
 
                         PushRectOutline(&PieceGroup, Volume->OffsetP.XY, 0, Volume->Dim.XY, V4(0, 0.5f, 1.0f, 1), 0.0f);
                     }
+#endif
                 } break;
 
                 default: {
