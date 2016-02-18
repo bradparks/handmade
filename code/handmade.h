@@ -81,6 +81,13 @@ struct memory_arena {
     memory_index Size;
     uint8 *Base;
     memory_index Used;
+
+    int32 TempCount;
+};
+
+struct temporary_memory {
+    memory_arena *Arena;
+    memory_index Used;
 };
 
 inline void
@@ -88,6 +95,7 @@ InitializeArena(memory_arena *Arena, memory_index Size, void *Base) {
     Arena->Size = Size;
     Arena->Base = (uint8 *) Base;
     Arena->Used = 0;
+    Arena->TempCount = 0;
 }
 
 #define PushStruct(Arena, type) (type *) PushSize_(Arena, sizeof(type))
@@ -98,7 +106,34 @@ PushSize_(memory_arena *Arena, memory_index Size) {
     Assert(Arena->Used + Size <= Arena->Size);
     void *Result = Arena->Base + Arena->Used;
     Arena->Used += Size;
+
     return Result;
+}
+
+inline temporary_memory
+BeginTemporaryMemory(memory_arena *Arena) {
+    temporary_memory Result;
+
+    Result.Arena = Arena;
+    Result.Used = Arena->Used;
+
+    ++Arena->TempCount;
+
+    return Result;
+}
+
+inline void
+EndTemporaryMemory(temporary_memory TempMem) {
+    memory_arena *Arena = TempMem.Arena;
+    Assert(Arena->Used >= TempMem.Used);
+    Arena->Used = TempMem.Used;
+    Assert(Arena->TempCount > 0);
+    --Arena->TempCount;
+}
+
+inline void
+CheckArena(memory_arena *Arena) {
+    Assert(Arena->TempCount == 0);
 }
 
 #define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
@@ -170,6 +205,12 @@ struct game_state;
 internal void AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 ShouldCollide);
 internal void ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex);
 
+struct ground_buffer {
+    // NOTE: An invalid P tells us that this ground_buffer has not been filled
+    world_position P; // NOTE: This is the center of the bitmap
+    void *Memory;
+};
+
 struct game_state {
     memory_arena WorldArena;
     world *World;
@@ -209,9 +250,14 @@ struct game_state {
     sim_entity_collision_volume_group *FamiliarCollision;
     sim_entity_collision_volume_group *WallCollision;
     sim_entity_collision_volume_group *StandardRoomCollision;
+};
 
-    world_position GroundBufferP;
-    loaded_bitmap GroundBuffer;
+struct transient_state {
+    bool32 IsInitialized;
+    memory_arena TranArena;
+    uint32 GroundBufferCount;
+    loaded_bitmap GroundBitmapTemplate;
+    ground_buffer *GroundBuffers;
 };
 
 // TODO: This is dump, this should just be part of
