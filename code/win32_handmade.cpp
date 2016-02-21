@@ -1050,12 +1050,14 @@ WinMain(HINSTANCE Instance,
                 while (GlobalRunning) {
                     NewInput->dtForFrame = TargetSecondsPerFrame;
 
+                    NewInput->ExecutableReloaded = false;
                     FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceGameCodeDLLFullpath);
                     if (CompareFileTime(&NewDLLWriteTime, &Game.DLLLastWriteTime) != 0) {
                         Win32UnloadGameCode(&Game);
                         Game = Win32LoadGameCode(SourceGameCodeDLLFullpath,
                                                  TempGameCodeDLLFullpath,
                                                  GameCodeLockFullpath);
+                        NewInput->ExecutableReloaded = true;
                     }
 
                     // TODO: Zeroing macro
