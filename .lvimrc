@@ -7,5 +7,3 @@ else
     let &makeprg = 'cd ' . g:coeuvre_project_root . ' && clear && ./build.sh'
     nnoremap <silent> <leader>br :VimuxRunCommand("cd " . g:coeuvre_project_root . g:coeuvre_shell_cmd_and . "clear" . g:coeuvre_shell_cmd_and . "./run.sh")<cr>
 endif
-
-nnoremap <silent> <leader>bb :make<cr>
