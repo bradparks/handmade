@@ -778,6 +778,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         TranState->IsInitialized = true;
     }
 
+#if 0
     if (Input->ExecutableReloaded) {
         for (uint32 GroundBufferIndex = 0;
              GroundBufferIndex < TranState->GroundBufferCount;
@@ -787,6 +788,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
             GroundBuffer->P = NullPosition();
         }
     }
+#endif
 
     world *World = GameState->World;
 
@@ -1087,6 +1089,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
             }
 
             Basis->P = GetEntityGroundPoint(Entity);
+        }
+    }
+
+    // TODO: Let's add a perp operator!!!
+    GameState->Time += Input->dtForFrame;
+    real32 Angle = GameState->Time;
+    v2 Origin = ScreenCenter + 10.0f * V2(Sin(Angle), 0.0f);
+    v2 XAxis = (100.0f + 25.0f * Cos(4.2f * Angle)) * V2(Cos(Angle), Sin(Angle));
+    v2 YAxis = 100.0f * V2(Cos(Angle + 1.0f), Sin(Angle + 1.0f));
+    render_entry_coordinate_system *C = CoordinateSystem(RenderGroup, Origin, XAxis, YAxis, V4(1, 1, 0, 1));
+    uint32 PIndex = 0;
+    for (real32 X = 0.0f; X < 1.0f; X += 0.25f) {
+        for (real32 Y = 0.0f; Y < 1.0f; Y += 0.25f) {
+            C->Points[PIndex++] = V2(X, Y);
         }
     }
 
