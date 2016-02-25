@@ -160,6 +160,11 @@ SafeRatio1(real32 Numerator, real32 Divisor) {
 //
 // NOTE: v2 operations
 //
+inline v2
+Perp(v2 A) {
+    v2 Result = {-A.y, A.x};
+    return Result;
+}
 
 inline v2 operator*(real32 A, v2 B) {
     v2 Result;
