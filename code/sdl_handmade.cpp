@@ -140,6 +140,29 @@ SDLGetLastWriteTime(const char *Filename) {
     return LastWriteTime;
 }
 
+internal void
+SDLCopyFile(const char *SourceFileName, const char *DestFileName) {
+    SDL_RWops *Source = SDL_RWFromFile(SourceFileName, "rb");
+    if (Source) {
+        SDL_RWops *Dest = SDL_RWFromFile(DestFileName, "wb");
+        if (Dest) {
+            char Buf[4096];
+            size_t BytesRead;
+            while ((BytesRead = SDL_RWread(Source, Buf, sizeof(*Buf), ArrayCount(Buf)))) {
+                SDL_RWwrite(Dest, Buf, sizeof(*Buf), BytesRead);
+            }
+
+            SDL_RWclose(Dest);
+            SDL_RWclose(Source);
+        } else {
+            printf("Can't open file %s for writing: %s\n", DestFileName, SDL_GetError());
+            SDL_RWclose(Source);
+        }
+    } else {
+        printf("Can't open file %s for reading: %s\n", SourceFileName, SDL_GetError());
+    }
+}
+
 internal sdl_game_code
 SDLLoadGameCode(const char *SourceDLLName, const char *TempDLLName,
                 const char *LockFileName)
@@ -148,20 +171,14 @@ SDLLoadGameCode(const char *SourceDLLName, const char *TempDLLName,
 
     if (access(LockFileName, F_OK) == -1) {
         Result.DLLLastWriteTime = SDLGetLastWriteTime(SourceDLLName);
-    }
-
-#if 0
-
-    WIN32_FILE_ATTRIBUTE_DATA Ignored;
-    if (!GetFileAttributesEx(LockFileName, GetFileExInfoStandard, &Ignored)) {
-        Result.DLLLastWriteTime = Win32GetLastWriteTime(SourceDLLName);
-
-        CopyFile(SourceDLLName, TempDLLName, FALSE);
-        Result.GameCodeDLL = LoadLibrary(TempDLLName);
+        SDLCopyFile(SourceDLLName, TempDLLName);
+        Result.GameCodeDLL = SDL_LoadObject(TempDLLName);
 
         if (Result.GameCodeDLL) {
-            Result.UpdateAndRender = (game_update_and_render *) GetProcAddress(Result.GameCodeDLL, "GameUpdateAndRender");
-            Result.GetSoundSamples = (game_get_sound_samples *) GetProcAddress(Result.GameCodeDLL, "GameGetSoundSamples");
+            Result.UpdateAndRender = (game_update_and_render *)
+                SDL_LoadFunction(Result.GameCodeDLL, "GameUpdateAndRender");
+            Result.GetSoundSamples = (game_get_sound_samples *)
+                SDL_LoadFunction(Result.GameCodeDLL, "GameGetSoundSamples");
 
             Result.IsValid = (Result.UpdateAndRender && Result.GetSoundSamples);
         }
@@ -172,8 +189,18 @@ SDLLoadGameCode(const char *SourceDLLName, const char *TempDLLName,
         Result.GetSoundSamples = 0;
     }
 
-#endif
     return Result;
+}
+
+internal void
+SDLUnloadGameCode(sdl_game_code *GameCode) {
+    if (GameCode->GameCodeDLL) {
+        SDL_UnloadObject(GameCode->GameCodeDLL);
+    }
+
+    GameCode->IsValid = false;
+    GameCode->UpdateAndRender = 0;
+    GameCode->GetSoundSamples = 0;
 }
 
 internal void
@@ -198,7 +225,7 @@ SDLResizeDIBSection(SDL_Window *Window, sdl_offscreen_buffer *Buffer,
     Buffer->Height = Height;
     Buffer->BytesPerPixel = BytesPerPixel;
     Buffer->Texture = SDL_CreateTexture(Buffer->Renderer,
-                                        SDL_PIXELFORMAT_RGBA8888,
+                                        SDL_PIXELFORMAT_ARGB8888,
                                         SDL_TEXTUREACCESS_STREAMING,
                                         Buffer->Width, Buffer->Height);
 
@@ -206,6 +233,29 @@ SDLResizeDIBSection(SDL_Window *Window, sdl_offscreen_buffer *Buffer,
     Buffer->Memory = mmap(0, BitmapMemorySize, PROT_READ | PROT_WRITE,
                           MAP_PRIVATE | MAP_ANON, -1, 0);
     Buffer->Pitch = Width * BytesPerPixel;
+}
+
+internal void
+SDLProcessPendingMessage(sdl_state *State, game_controller_input *KeyboardController) {
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+        switch (e.type) {
+            case SDL_QUIT: {
+                GlobalRunning = false;
+            } break;
+
+            // TODO: Handle keyboard events here
+
+            default: break;
+        }
+    }
+}
+
+internal void
+SDLDisplayBufferInWindow(sdl_offscreen_buffer *Buffer) {
+    SDL_UpdateTexture(Buffer->Texture, 0, Buffer->Memory, Buffer->Width * 4);
+    SDL_RenderCopy(Buffer->Renderer, Buffer->Texture, 0, 0);
+    SDL_RenderPresent(Buffer->Renderer);
 }
 
 int main(int argc, char *argv[]) {
@@ -290,8 +340,59 @@ int main(int argc, char *argv[]) {
                                          TempGameCodeDLLFullpath,
                                          GameCodeLockFullpath);
 
-
     uint64 LastCycleCount = _rdtsc();
+
+    while (GlobalRunning) {
+        NewInput->dtForFrame = TargetSecondsPerFrame;
+
+        NewInput->ExecutableReloaded = false;
+        time_t NewDLLWriteTime = SDLGetLastWriteTime(SourceGameCodeDLLFullpath);
+        if (difftime(NewDLLWriteTime, Game.DLLLastWriteTime) > 0) {
+            SDLUnloadGameCode(&Game);
+            Game = SDLLoadGameCode(SourceGameCodeDLLFullpath,
+                                   TempGameCodeDLLFullpath,
+                                   GameCodeLockFullpath);
+            NewInput->ExecutableReloaded = true;
+        }
+
+        game_controller_input *OldKeyboardController = GetController(OldInput, 0);
+        game_controller_input *NewKeyboardController = GetController(NewInput, 0);
+        *NewKeyboardController = {};
+        NewKeyboardController->IsConnected = true;
+        for (size_t ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ++ButtonIndex) {
+            NewKeyboardController->Buttons[ButtonIndex].EndedDown = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+        }
+
+        SDLProcessPendingMessage(&SDLState, NewKeyboardController);
+
+        if (!GlobalPause) {
+            SDL_GetMouseState(&NewInput->MouseX, &NewInput->MouseY);
+            NewInput->MouseZ = 0;
+
+            // TODO: Handle Mouse button here
+
+            // TODO: Game controller support here
+
+            thread_context Thread = {};
+            game_offscreen_buffer Buffer = {};
+            Buffer.Memory = GlobalBackBuffer.Memory;
+            Buffer.Width = GlobalBackBuffer.Width;
+            Buffer.Height = GlobalBackBuffer.Height;
+            Buffer.Pitch = GlobalBackBuffer.Pitch;
+
+            if (Game.UpdateAndRender) {
+                Game.UpdateAndRender(&Thread, &GameMemory, NewInput, &Buffer);
+            }
+
+            // TODO: Game audio support here
+
+            SDLDisplayBufferInWindow(&GlobalBackBuffer);
+
+            game_input *Temp = NewInput;
+            NewInput = OldInput;
+            OldInput = Temp;
+        }
+    }
 
     return 0;
 }
