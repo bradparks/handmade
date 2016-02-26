@@ -350,6 +350,113 @@ Clamp01(v3 Value) {
 }
 
 //
+// NOTE: v4 operations
+//
+
+inline v4 operator*(real32 A, v4 B) {
+    v4 Result;
+
+    Result.x = A * B.x;
+    Result.y = A * B.y;
+    Result.z = A * B.z;
+    Result.w = A * B.w;
+
+    return Result;
+}
+
+inline v4 operator*(v4 B, real32 A) {
+    v4 Result = A * B;
+
+    return Result;
+}
+
+inline v4 &
+operator*=(v4 &A, real32 B) {
+    A = B * A;
+
+    return A;
+}
+
+inline v4 operator-(v4 A) {
+    v4 Result;
+
+    Result.x = -A.x;
+    Result.y = -A.y;
+    Result.z = -A.z;
+    Result.w = -A.w;
+
+    return Result;
+}
+
+inline v4 operator+(v4 A, v4 B) {
+    v4 Result;
+
+    Result.x = A.x + B.x;
+    Result.y = A.y + B.y;
+    Result.z = A.z + B.z;
+    Result.w = A.w + B.w;
+
+    return Result;
+}
+
+inline v4 &
+operator+=(v4 &A, v4 B) {
+    A = A + B;
+
+    return A;
+}
+
+inline v4 operator-(v4 A, v4 B) {
+    v4 Result;
+
+    Result.x = A.x - B.x;
+    Result.y = A.y - B.y;
+    Result.z = A.z - B.z;
+    Result.w = A.w - B.w;
+
+    return Result;
+}
+
+inline v4
+Hadamard(v4 A, v4 B) {
+    v4 Result = {A.x * B.x, A.y * B.y, A.z * B.z, A.w * B.w};
+    return Result;
+}
+
+inline real32
+Inner(v4 A, v4 B) {
+    return A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w;
+}
+
+inline real32
+LengthSq(v4 A) {
+    return Inner(A, A);
+}
+
+inline real32
+Length(v4 A) {
+    return SquareRoot(LengthSq(A));
+}
+
+inline v4
+Clamp01(v4 Value) {
+    v4 Result;
+
+    Result.x = Clamp01(Value.x);
+    Result.y = Clamp01(Value.y);
+    Result.z = Clamp01(Value.z);
+    Result.w = Clamp01(Value.w);
+
+    return Result;
+}
+
+inline v4
+Lerp(v4 A, real32 t, v4 B) {
+    v4 Result = (1.0f - t) * A + t * B;
+    return Result;
+}
+
+//
 // NOTE: Rectangle2
 //
 

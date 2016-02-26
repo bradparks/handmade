@@ -1094,11 +1094,21 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
     // TODO: Let's add a perp operator!!!
     GameState->Time += Input->dtForFrame;
-    real32 Angle = GameState->Time;
+    real32 Angle = 0.1f * GameState->Time;
+    real32 Disp = 10.0f * Cos(5.0f * Angle);
     v2 Origin = ScreenCenter;
-    v2 XAxis = 100.0f * V2(Cos(Angle), Sin(Angle));
-    v2 YAxis = V2(-XAxis.y, XAxis.x);
-    render_entry_coordinate_system *C = CoordinateSystem(RenderGroup, Origin, XAxis, YAxis, V4(1, 1, 0, 1));
+#if 0
+    v2 XAxis = 300.0f * V2(Cos(Angle), Sin(Angle));
+    v2 YAxis = Perp(XAxis);
+#else
+    v2 XAxis = {300.0f, 0};
+    v2 YAxis = {0, 300.0f};
+#endif
+    render_entry_coordinate_system *C = CoordinateSystem(RenderGroup,
+                                                         V2(Disp, 0) + Origin - 0.5f * XAxis - 0.5f * YAxis,
+                                                         XAxis, YAxis,
+                                                         V4(1, 1, 0, 1),
+                                                         &GameState->Tree);
     uint32 PIndex = 0;
     for (real32 X = 0.0f; X < 1.0f; X += 0.25f) {
         for (real32 Y = 0.0f; Y < 1.0f; Y += 0.25f) {
