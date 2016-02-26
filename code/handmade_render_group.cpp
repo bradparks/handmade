@@ -1,3 +1,29 @@
+inline v4
+SRGB255ToLinear1(v4 C) {
+    v4 Result;
+
+    real32 Inv255 = 1.0f / 255.0f;
+
+    Result.r = Square(Inv255 * C.r);
+    Result.g = Square(Inv255 * C.g);
+    Result.b = Square(Inv255 * C.b);
+    Result.a = Inv255 * C.a;
+
+    return Result;
+}
+
+inline v4
+Linear1ToSRGB255(v4 C) {
+    v4 Result;
+
+    Result.r = SquareRoot(C.r) * 255.0f;
+    Result.g = SquareRoot(C.g) * 255.0f;
+    Result.b = SquareRoot(C.b) * 255.0f;
+    Result.a = C.a * 255.0f;
+
+    return Result;
+}
+
 internal void
 DrawRectangle(loaded_bitmap *Buffer, v2 vMin, v2 vMax, real32 R, real32 G, real32 B, real32 A = 1.0f) {
     int MinX = RoundReal32ToInt32(vMin.x);
@@ -102,9 +128,11 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis,
                 real32 U = InvXAxisLengthSq * Inner(d, XAxis);
                 real32 V = InvYAxisLengthSq * Inner(d, YAxis);
 
+#if 0
                 // TODO: SSE clamping.
                 Assert(U >= 0.0f && U <= 1.0f);
                 Assert(V >= 0.0f && V <= 1.0f);
+#endif
 
                 // TODO: Formalize texture boundaries!!!
                 real32 tX = (U * (Texture->Width - 2));
@@ -143,32 +171,42 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis,
                               (real32) ((TexelPtrD >> 0) & 0xFF),
                               (real32) ((TexelPtrD >> 24) & 0xFF) };
 
+                // NOTE: Go from sRGB to "linear" brightness space
+                TexelA = SRGB255ToLinear1(TexelA);
+                TexelB = SRGB255ToLinear1(TexelB);
+                TexelC = SRGB255ToLinear1(TexelC);
+                TexelD = SRGB255ToLinear1(TexelD);
+
+#if 1
                 v4 Texel = Lerp(Lerp(TexelA, fX, TexelB), fY, Lerp(TexelC, fX, TexelD));
+#else
+                v4 Texel = TexelA;
+#endif
 
-                real32 SA = Texel.a;
-                real32 SR = Texel.r;
-                real32 SG = Texel.g;
-                real32 SB = Texel.b;
+                real32 RSA = Texel.a * Color.a;
 
-                real32 RSA = (SA / 255.0f) * Color.a;
+                v4 Dest = { (real32)((*Pixel >> 16) & 0xFF),
+                            (real32)((*Pixel >> 8) & 0xFF),
+                            (real32)((*Pixel >> 0) & 0xFF),
+                            (real32)((*Pixel >> 24) & 0xFF) };
 
-                real32 DA = (real32) ((*Pixel >> 24) & 0xFF);
-                real32 DR = (real32) ((*Pixel >> 16) & 0xFF);
-                real32 DG = (real32) ((*Pixel >> 8) & 0xFF);
-                real32 DB = (real32) ((*Pixel >> 0) & 0xFF);
-                real32 RDA = (DA / 255.0f);
+                // NOTE: Go from sRGB to "linear" brightness space
+                Dest = SRGB255ToLinear1(Dest);
 
                 real32 InvRSA = (1 - RSA);
                 // TODO: Check this for math errors
-                real32 A = 255.0f * (RDA + RSA - RDA * RSA); // InvRSA * DA + SA;
-                real32 R = InvRSA * DR + SR;
-                real32 G = InvRSA * DG + SG;
-                real32 B = InvRSA * DB + SB;
+                v4 Blended = { InvRSA * Dest.r + Color.a * Color.r * Texel.r,
+                               InvRSA * Dest.g + Color.a * Color.g * Texel.g,
+                               InvRSA * Dest.b + Color.a * Color.b * Texel.b,
+                               InvRSA * Dest.a + RSA };
 
-                *Pixel = (((uint32) (A + 0.5f) << 24) |
-                         ((uint32) (R + 0.5f) << 16) |
-                         ((uint32) (G + 0.5f) << 8) |
-                         ((uint32) (B + 0.5f) << 0));
+                // NOTE: Go from "linear" brightness space to sRGB
+                v4 Blended255 = Linear1ToSRGB255(Blended);
+
+                *Pixel = (((uint32)(Blended255.a + 0.5f) << 24) |
+                          ((uint32)(Blended255.r + 0.5f) << 16) |
+                          ((uint32)(Blended255.g + 0.5f) << 8) |
+                          ((uint32)(Blended255.b + 0.5f) << 0));
             }
 
             ++Pixel;
@@ -337,6 +375,9 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
                 DrawRectangle(OutputTarget, P - Dim, P + Dim, Color.r, Color.g, Color.b);
 
                 P = Entry->Origin + Entry->YAxis;
+                DrawRectangle(OutputTarget, P - Dim, P + Dim, Color.r, Color.g, Color.b);
+
+                P = Entry->Origin + Entry->XAxis + Entry->YAxis;
                 DrawRectangle(OutputTarget, P - Dim, P + Dim, Color.r, Color.g, Color.b);
 
 #if 0
