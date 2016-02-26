@@ -245,6 +245,11 @@ SDLProcessPendingMessage(sdl_state *State, game_controller_input *KeyboardContro
             } break;
 
             // TODO: Handle keyboard events here
+            case SDL_KEYDOWN: {
+                if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    GlobalRunning = false;
+                }
+            } break;
 
             default: break;
         }
