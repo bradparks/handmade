@@ -71,6 +71,9 @@ internal void
 DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis,
                     v4 Color, loaded_bitmap *Texture)
 {
+    // NOTE: Premultiply color up front
+    Color.rgb *= Color.a;
+
     real32 InvXAxisLengthSq = 1.0f / LengthSq(XAxis);
     real32 InvYAxisLengthSq = 1.0f / LengthSq(YAxis);
 
@@ -182,8 +185,7 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis,
 #else
                 v4 Texel = TexelA;
 #endif
-
-                real32 RSA = Texel.a * Color.a;
+                Texel = Hadamard(Texel, Color);
 
                 v4 Dest = { (real32)((*Pixel >> 16) & 0xFF),
                             (real32)((*Pixel >> 8) & 0xFF),
@@ -193,12 +195,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis,
                 // NOTE: Go from sRGB to "linear" brightness space
                 Dest = SRGB255ToLinear1(Dest);
 
-                real32 InvRSA = (1 - RSA);
                 // TODO: Check this for math errors
-                v4 Blended = { InvRSA * Dest.r + Color.a * Color.r * Texel.r,
-                               InvRSA * Dest.g + Color.a * Color.g * Texel.g,
-                               InvRSA * Dest.b + Color.a * Color.b * Texel.b,
-                               InvRSA * Dest.a + RSA };
+                v4 Blended = (1.0f - Texel.a) * Dest + Texel;
 
                 // NOTE: Go from "linear" brightness space to sRGB
                 v4 Blended255 = Linear1ToSRGB255(Blended);
@@ -215,20 +213,10 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis,
     }
 }
 
-inline void
-DrawRectangleOutline(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v3 Color, real32 R = 2.0f) {
-    // NOTE: Top and bottom
-    DrawRectangle(Buffer, V2(vMin.x - R, vMin.y - R), V2(vMax.x + R, vMin.y + R), Color.r, Color.g, Color.b);
-    DrawRectangle(Buffer, V2(vMin.x - R, vMax.y - R), V2(vMax.x + R, vMax.y + R), Color.r, Color.g, Color.b);
-
-    // NOTE: Left and right
-    DrawRectangle(Buffer, V2(vMin.x - R, vMin.y - R), V2(vMin.x + R, vMax.y + R), Color.r, Color.g, Color.b);
-    DrawRectangle(Buffer, V2(vMax.x - R, vMin.y - R), V2(vMax.x + R, vMax.y + R), Color.r, Color.g, Color.b);
-}
-
 internal void
 DrawBitmap(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
-           real32 RealX, real32 RealY, real32 CAlpha = 1.0) {
+           real32 RealX, real32 RealY, real32 CAlpha = 1.0)
+{
     int MinX = RoundReal32ToInt32(RealX);
     int MinY = RoundReal32ToInt32(RealY);
     int MaxX = MinX + Bitmap->Width;
@@ -262,29 +250,28 @@ DrawBitmap(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
         uint32 *Dest = (uint32 *) DestRow;
         uint32 *Source = (uint32 *) SourceRow;
         for (int32 X = MinX; X < MaxX; ++X) {
-            real32 SA = (real32) ((*Source >> 24) & 0xFF);
-            real32 RSA = (SA / 255.0f) * CAlpha;
-            real32 SR = CAlpha * (real32) ((*Source >> 16) & 0xFF);
-            real32 SG = CAlpha * (real32) ((*Source >> 8) & 0xFF);
-            real32 SB = CAlpha * (real32) ((*Source >> 0) & 0xFF);
+            v4 Texel = { (real32)((*Source >> 16) & 0xFF),
+                         (real32)((*Source >> 8) & 0xFF),
+                         (real32)((*Source >> 0) & 0xFF),
+                         (real32)((*Source >> 24) & 0xFF) };
+            Texel = SRGB255ToLinear1(Texel);
+            Texel *= CAlpha;
 
-            real32 DA = (real32) ((*Dest >> 24) & 0xFF);
-            real32 DR = (real32) ((*Dest >> 16) & 0xFF);
-            real32 DG = (real32) ((*Dest >> 8) & 0xFF);
-            real32 DB = (real32) ((*Dest >> 0) & 0xFF);
-            real32 RDA = (DA / 255.0f);
+            v4 D = { (real32)((*Dest >> 16) & 0xFF),
+                     (real32)((*Dest >> 8) & 0xFF),
+                     (real32)((*Dest >> 0) & 0xFF),
+                     (real32)((*Dest >> 24) & 0xFF) };
 
-            real32 InvRSA = (1 - RSA);
-            // TODO: Check this for math errors
-            real32 A = 255.0f * (RDA + RSA - RDA * RSA); // InvRSA * DA + SA;
-            real32 R = InvRSA * DR + SR;
-            real32 G = InvRSA * DG + SG;
-            real32 B = InvRSA * DB + SB;
+            D = SRGB255ToLinear1(D);
 
-            *Dest = (((uint32) (A + 0.5f) << 24) |
-                     ((uint32) (R + 0.5f) << 16) |
-                     ((uint32) (G + 0.5f) << 8) |
-                     ((uint32) (B + 0.5f) << 0));
+            v4 Result = (1.0f - Texel.a) * D + Texel;
+
+            Result = Linear1ToSRGB255(Result);
+
+            *Dest = (((uint32)(Result.a + 0.5f) << 24) |
+                     ((uint32)(Result.r + 0.5f) << 16) |
+                     ((uint32)(Result.g + 0.5f) << 8) |
+                     ((uint32)(Result.b + 0.5f) << 0));
 
             ++Dest;
             ++Source;
@@ -292,6 +279,17 @@ DrawBitmap(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
         DestRow += Buffer->Pitch;
         SourceRow += Bitmap->Pitch;
     }
+}
+
+inline void
+DrawRectangleOutline(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v3 Color, real32 R = 2.0f) {
+    // NOTE: Top and bottom
+    DrawRectangle(Buffer, V2(vMin.x - R, vMin.y - R), V2(vMax.x + R, vMin.y + R), Color.r, Color.g, Color.b);
+    DrawRectangle(Buffer, V2(vMin.x - R, vMax.y - R), V2(vMax.x + R, vMax.y + R), Color.r, Color.g, Color.b);
+
+    // NOTE: Left and right
+    DrawRectangle(Buffer, V2(vMin.x - R, vMin.y - R), V2(vMin.x + R, vMax.y + R), Color.r, Color.g, Color.b);
+    DrawRectangle(Buffer, V2(vMax.x - R, vMin.y - R), V2(vMax.x + R, vMax.y + R), Color.r, Color.g, Color.b);
 }
 
 inline v2 GetRenderEntityBasisP(render_group *RenderGroup,
@@ -320,9 +318,12 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
     {
         render_group_entry_header *Header = (render_group_entry_header *)
             (RenderGroup->PushBufferBase + BaseAddress);
+        BaseAddress += sizeof(*Header);
+
+        void *Data = (Header + 1);
         switch (Header->Type) {
             case RenderGroupEntryType_render_entry_clear: {
-                render_entry_clear *Entry = (render_entry_clear *)Header;
+                render_entry_clear *Entry = (render_entry_clear *)Data;
 
                 DrawRectangle(OutputTarget, V2(0.0f, 0.0f),
                               V2((real32) OutputTarget->Width,
@@ -336,7 +337,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
             } break;
 
             case RenderGroupEntryType_render_entry_bitmap: {
-                render_entry_bitmap *Entry = (render_entry_bitmap *)Header;
+                render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
 
                 v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis,
                                              ScreenCenter);
@@ -348,7 +349,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
             } break;
 
             case RenderGroupEntryType_render_entry_rectangle: {
-                render_entry_rectangle *Entry = (render_entry_rectangle *)Header;
+                render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
                 v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis,
                                              ScreenCenter);
                 DrawRectangle(OutputTarget, P, P + Entry->Dim, Entry->R, Entry->G, Entry->B);
@@ -357,7 +358,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
             } break;
 
             case RenderGroupEntryType_render_entry_coordinate_system: {
-                render_entry_coordinate_system *Entry = (render_entry_coordinate_system *)Header;
+                render_entry_coordinate_system *Entry = (render_entry_coordinate_system *)Data;
 
                 DrawRectangleSlowly(OutputTarget,
                                     Entry->Origin,
@@ -418,13 +419,16 @@ AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize, real32 Meters
 
 #define PushRenderElement(Group, type) (type *)PushRenderElement_(Group, sizeof(type), RenderGroupEntryType_##type)
 
-inline render_group_entry_header *
+inline void *
 PushRenderElement_(render_group *Group, uint32 Size, render_group_entry_type Type) {
-    render_group_entry_header *Result = 0;
+    void *Result = 0;
+
+    Size += sizeof(render_group_entry_header);
 
     if (Group->PushBufferSize + Size < Group->MaxPushBufferSize) {
-        Result = (render_group_entry_header *)(Group->PushBufferBase + Group->PushBufferSize);
-        Result->Type = Type;
+        render_group_entry_header *Header = (render_group_entry_header *)(Group->PushBufferBase + Group->PushBufferSize);
+        Header->Type = Type;
+        Result = (Header + 1);
         Group->PushBufferSize += Size;
     } else {
         InvalidCodePath;
