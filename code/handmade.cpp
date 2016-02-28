@@ -866,7 +866,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     DrawBuffer->Pitch = Buffer->Pitch;
     DrawBuffer->Memory = Buffer->Memory;
 
-    Clear(RenderGroup, V4(1.0f, 0.0f, 1.0f, 0.0f));
+    Clear(RenderGroup, V4(0.5f, 0.5f, 0.5f, 0.0f));
 
     v2 ScreenCenter = V2(0.5f * (real32) DrawBuffer->Width,
                          0.5f * (real32) DrawBuffer->Height);
@@ -1097,9 +1097,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     GameState->Time += Input->dtForFrame;
     real32 Angle = 0.1f * GameState->Time;
     real32 Disp = 100.0f * Cos(5.0f * Angle);
+
+    Angle = 0.0f;
+
     v2 Origin = ScreenCenter;
-#if 0
-    v2 XAxis = 300.0f * V2(Cos(Angle), Sin(Angle));
+#if 1
+    v2 XAxis = 100.0f * V2(Cos(Angle), Sin(Angle));
     v2 YAxis = Perp(XAxis);
 #else
     v2 XAxis = {150.0f, 0};
@@ -1115,7 +1118,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     v4 Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
 #endif
     render_entry_coordinate_system *C = CoordinateSystem(RenderGroup,
-                                                         V2(Disp, 0) + Origin - 0.5f * XAxis - 0.5f * YAxis,
+                                                         Origin - 0.5f * XAxis - 0.5f * YAxis,
                                                          XAxis, YAxis,
                                                          Color,
                                                          &GameState->Tree);
