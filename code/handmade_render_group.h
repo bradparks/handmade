@@ -2,9 +2,6 @@
 #define HANDMADE_RENDER_GROUP_H
 
 struct environment_map {
-    // NOTE: LOD[0] is 2^WidthPow2 x 2^HeightPow2
-    uint32 WidthPow2;
-    uint32 HeightPow2;
     loaded_bitmap *LOD[4];
 };
 
