@@ -412,13 +412,11 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
         ddP += V3(0, 0, -9.8f); // NOTE: Gravity!
     }
 
-    v3 OldPlayerP = Entity->P;
     v3 PlayerDelta = (0.5f * ddP * Square(dt) + Entity->dP * dt);
     Entity->dP = ddP * dt + Entity->dP;
     // TODO: Upgrade physics motion routines to handle capping the
     // maximum velocity?
     Assert(LengthSq(Entity->dP) <= Square(SimRegion->MaxEntityVelocity));
-    v3 NewPlayerP = OldPlayerP + PlayerDelta;
 
     real32 DistanceRemaining = Entity->DistanceLimit;
     if (DistanceRemaining == 0.0f) {
