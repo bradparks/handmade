@@ -244,6 +244,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                 Assert(V >= 0.0f && V <= 1.0f);
 #endif
 
+                // NOTE: No code for day 101
+
                 // TODO: Formalize texture boundaries!!!
                 real32 tX = (U * (Texture->Width - 2));
                 real32 tY = (V * (Texture->Height - 2));
