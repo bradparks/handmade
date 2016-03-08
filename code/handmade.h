@@ -162,8 +162,6 @@ ZeroSize(memory_index Size, void *Ptr) {
 #include "handmade_render_group.h"
 
 struct hero_bitmaps {
-    v2 Align;
-
     loaded_bitmap Head;
     loaded_bitmap Cape;
     loaded_bitmap Torso;

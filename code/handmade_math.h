@@ -129,18 +129,8 @@ V4(real32 X, real32 Y, real32 Z, real32 W) {
     return Result;
 }
 
-inline v3
-ToV3(v2 XY, real32 Z) {
-    v3 Result;
-
-    Result.xy = XY;
-    Result.z = Z;
-
-    return Result;
-}
-
 inline v4
-ToV4(v3 XYZ, real32 W) {
+V4(v3 XYZ, real32 W) {
     v4 Result;
 
     Result.xyz = XYZ;
