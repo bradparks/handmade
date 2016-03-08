@@ -259,7 +259,7 @@ SDLProcessPendingMessage(sdl_state *State, game_controller_input *KeyboardContro
 internal void
 SDLDisplayBufferInWindow(sdl_offscreen_buffer *Buffer) {
     SDL_UpdateTexture(Buffer->Texture, 0, Buffer->Memory, Buffer->Width * 4);
-    SDL_RenderCopy(Buffer->Renderer, Buffer->Texture, 0, 0);
+    SDL_RenderCopyEx(Buffer->Renderer, Buffer->Texture, 0, 0, 0, 0, SDL_FLIP_VERTICAL);
     SDL_RenderPresent(Buffer->Renderer);
 }
 
