@@ -789,19 +789,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         for (uint32 ScreenIndex = 0; ScreenIndex < 2000; ++ScreenIndex) {
             // TODO: Random number generator!
 #if 1
-            uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 3);
+            uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 4);
 #else
             uint32 DoorDirection = RandomChoice(&Series, 2);
 #endif
 
+            DoorDirection = 3;
+
             bool32 CreatedZDoor = false;
-            if (DoorDirection == 2) {
+            if (DoorDirection == 3) {
                 CreatedZDoor = true;
-                if (AbsTileZ == ScreenBaseZ) {
-                    DoorUp = true;
-                } else {
-                    DoorDown = true;
-                }
+                DoorDown = true;
+            } else if (DoorDirection == 2) {
+                CreatedZDoor = true;
+                DoorUp = true;
             } else if (DoorDirection == 1) {
                 DoorRight = true;
             } else {
@@ -836,12 +837,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                     }
 
                     if (ShouldBeDoor) {
-                        //if (ScreenIndex == 0) {
+                        if ((TileY % 2) || (TileX % 2)) {
                             AddWall(GameState, AbsTileX, AbsTileY, AbsTileZ);
-                        //}
+                        }
                     } else {
                         if (CreatedZDoor) {
-                            if (TileX == 10 && TileY == 5) {
+                            if (((AbsTileZ % 2) && TileX == 10 && TileY == 5) ||
+                                (!(AbsTileZ % 2) && TileX == 4 && TileY == 5)) {
                                 AddStair(GameState, AbsTileX, AbsTileY, DoorDown ? AbsTileZ - 1 : AbsTileZ);
                             }
                         }
@@ -863,12 +865,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
             DoorRight = false;
             DoorTop = false;
 
-            if (DoorDirection == 2) {
-                if (AbsTileZ == ScreenBaseZ) {
-                    AbsTileZ = ScreenBaseZ + 1;
-                } else {
-                    AbsTileZ = ScreenBaseZ;
-                }
+            if (DoorDirection == 3) {
+                AbsTileZ -= 1;
+            } else if (DoorDirection == 2) {
+                AbsTileZ += 1;
             } else if (DoorDirection == 1) {
                 ScreenX += 1;
             } else {
@@ -1001,7 +1001,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
             ConHero->dSword = {};
 
-#if 0
             if (Controller->ActionUp.EndedDown) {
                 ConHero->dSword = V2(0.0f, 1.0f);
             }
@@ -1017,17 +1016,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
             if (Controller->ActionRight.EndedDown) {
                 ConHero->dSword = V2(1.0f, 0.0f);
             }
-#else
-            real32 ZoomRate = 0.0f;
-            if (Controller->ActionUp.EndedDown) {
-                ZoomRate = 1.0f;
-            }
-
-            if (Controller->ActionDown.EndedDown) {
-                ZoomRate = -1.0f;
-            }
-            GameState->ZOffset += ZoomRate * Input->dtForFrame;
-#endif
         }
     }
 
@@ -1039,7 +1027,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4),
                                                     GameState->MetersToPixels);
 
-    RenderGroup->GlobalAlpha = 1.0f; //Clamp01(1.0f - GameState->ZOffset);
     loaded_bitmap DrawBuffer_ = {};
     loaded_bitmap *DrawBuffer = &DrawBuffer_;
     DrawBuffer->Width = Buffer->Width;
@@ -1056,6 +1043,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     real32 ScreenHeightInMeters = DrawBuffer->Height * PixelsToMeters;
     rectangle3 CameraBoundsInMeters = RectCenterDim(V3(0, 0, 0),
                                                     V3(ScreenWidthInMeters, ScreenHeightInMeters, 0.0f));
+    CameraBoundsInMeters.Min.z = -3.0f * GameState->TypicalFloorHeight;
+    CameraBoundsInMeters.Max.z = 1.0f * GameState->TypicalFloorHeight;
 
 #if 0
     for (uint32 GroundBufferIndex = 0;
@@ -1128,12 +1117,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 #endif
 
     // TODO: How big do we actually want to expand here?
-    v3 SimBoundsExpansion = V3(15.0f, 15.0f, 15.0f);
+    // TODO: Do we want to simulate upper floors. etc.
+    v3 SimBoundsExpansion = V3(15.0f, 15.0f, 0.0f);
     rectangle3 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
 
     temporary_memory SimMemory = BeginTemporaryMemory(&TranState->TranArena);
+    world_position SimCenterP = GameState->CameraP;
     sim_region *SimRegion = BeginSim(&TranState->TranArena, GameState, GameState->World,
                                      GameState->CameraP, SimBounds, Input->dtForFrame);
+
+    v3 CameraP = Subtract(GameState->World, &GameState->CameraP, &SimCenterP);
 
     // TODO: Move this out into handmade_entity.cpp
     for (uint32 EntityIndex = 0;
@@ -1155,6 +1148,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
             render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
             RenderGroup->DefaultBasis = Basis;
+
+            // TODO: Probably indicates we want to seperate update and render
+            // for entities sometime soon?
+            v3 CameraRelativeGroundP = GetEntityGroundPoint(Entity) - CameraP;
+            real32 FadeTopStartZ = 0.5f * GameState->TypicalFloorHeight;
+            real32 FadeTopEndZ = 0.75f * GameState->TypicalFloorHeight;
+            real32 FadeBottomStartZ = -2.0f * GameState->TypicalFloorHeight;
+            real32 FadeBottomEndZ = -2.25f * GameState->TypicalFloorHeight;
+            RenderGroup->GlobalAlpha = 1.0f;
+            if (CameraRelativeGroundP.z > FadeTopStartZ) {
+                RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeTopEndZ, CameraRelativeGroundP.z, FadeTopStartZ);
+            } else if (CameraRelativeGroundP.z < FadeBottomStartZ) {
+                RenderGroup->GlobalAlpha = Clamp01MapToRange(FadeBottomEndZ, CameraRelativeGroundP.z, FadeBottomStartZ);
+            }
 
             hero_bitmaps *HeroBitmaps = &GameState->HeroBitmaps[Entity->FacingDirection];
             switch (Entity->Type) {
@@ -1264,7 +1271,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                     for (uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex) {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
 
-                        //PushRectOutline(RenderGroup, Volume->OffsetP - V3(0, 0, 0.5f * Volume->Dim.z), Volume->Dim.xy, V4(0, 0.5f, 1.0f, 1));
+                        PushRectOutline(RenderGroup, Volume->OffsetP - V3(0, 0, 0.5f * Volume->Dim.z), Volume->Dim.xy, V4(0, 0.5f, 1.0f, 1));
                     }
                 } break;
 
@@ -1279,7 +1286,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                            &MoveSpec, ddP);
             }
 
-            Basis->P = GetEntityGroundPoint(Entity) + V3(0, 0, GameState->ZOffset);
+            Basis->P = GetEntityGroundPoint(Entity);
         }
     }
 

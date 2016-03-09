@@ -108,8 +108,6 @@ struct sim_region {
     real32 MaxEntityRadius;
     real32 MaxEntityVelocity;
 
-    // TODO: Need a hash table here to map stored entity indices
-    // to sim entities!
     world_position Origin;
     rectangle3 Bounds;
     rectangle3 UpdatableBounds;
