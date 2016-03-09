@@ -236,18 +236,56 @@ SDLResizeDIBSection(SDL_Window *Window, sdl_offscreen_buffer *Buffer,
 }
 
 internal void
+SDLProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown) {
+    if (NewState->EndedDown != IsDown) {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+}
+
+internal void
 SDLProcessPendingMessage(sdl_state *State, game_controller_input *KeyboardController) {
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-        switch (e.type) {
+    SDL_Event Event;
+    while (SDL_PollEvent(&Event)) {
+        switch (Event.type) {
             case SDL_QUIT: {
                 GlobalRunning = false;
             } break;
 
-            // TODO: Handle keyboard events here
+            case SDL_KEYUP:
             case SDL_KEYDOWN: {
-                if (e.key.keysym.sym == SDLK_ESCAPE) {
-                    GlobalRunning = false;
+                SDL_Keycode Key = Event.key.keysym.sym;
+
+                bool IsDown = Event.key.state == SDL_PRESSED;
+                bool WasDown = Event.key.state == SDL_RELEASED;
+
+                if (WasDown != IsDown) {
+                    if (Key == SDLK_w) {
+                        SDLProcessKeyboardMessage(&KeyboardController->MoveUp, IsDown);
+                    } else if (Key == SDLK_a) {
+                        SDLProcessKeyboardMessage(&KeyboardController->MoveLeft, IsDown);
+                    } else if (Key == SDLK_s) {
+                        SDLProcessKeyboardMessage(&KeyboardController->MoveDown, IsDown);
+                    } else if (Key == SDLK_d) {
+                        SDLProcessKeyboardMessage(&KeyboardController->MoveRight, IsDown);
+                    } else if (Key == SDLK_q) {
+                        SDLProcessKeyboardMessage(&KeyboardController->LeftShoulder, IsDown);
+                    } else if (Key == SDLK_e) {
+                        SDLProcessKeyboardMessage(&KeyboardController->RightShoulder, IsDown);
+                    } else if (Key == SDLK_UP) {
+                        SDLProcessKeyboardMessage(&KeyboardController->ActionUp, IsDown);
+                    } else if (Key == SDLK_LEFT) {
+                        SDLProcessKeyboardMessage(&KeyboardController->ActionLeft, IsDown);
+                    } else if (Key == SDLK_RIGHT) {
+                        SDLProcessKeyboardMessage(&KeyboardController->ActionRight, IsDown);
+                    } else if (Key == SDLK_DOWN) {
+                        SDLProcessKeyboardMessage(&KeyboardController->ActionDown, IsDown);
+                    } else if (Key == SDLK_ESCAPE) {
+                        SDLProcessKeyboardMessage(&KeyboardController->Back, IsDown);
+                        GlobalRunning = false;
+                    } else if (Key == SDLK_SPACE) {
+                        SDLProcessKeyboardMessage(&KeyboardController->Start, IsDown);
+                    }
                 }
             } break;
 
@@ -371,8 +409,18 @@ int main(int argc, char *argv[]) {
         SDLProcessPendingMessage(&SDLState, NewKeyboardController);
 
         if (!GlobalPause) {
-            SDL_GetMouseState(&NewInput->MouseX, &NewInput->MouseY);
+            Uint32 MouseButtons = SDL_GetMouseState(&NewInput->MouseX, &NewInput->MouseY);
             NewInput->MouseZ = 0;
+            SDLProcessKeyboardMessage(&NewInput->MouseButtons[0],
+                                      SDL_BUTTON(SDL_BUTTON_LEFT));
+            SDLProcessKeyboardMessage(&NewInput->MouseButtons[1],
+                                      SDL_BUTTON(SDL_BUTTON_MIDDLE));
+            SDLProcessKeyboardMessage(&NewInput->MouseButtons[2],
+                                      SDL_BUTTON(SDL_BUTTON_RIGHT));
+            SDLProcessKeyboardMessage(&NewInput->MouseButtons[3],
+                                      SDL_BUTTON(SDL_BUTTON_X1));
+            SDLProcessKeyboardMessage(&NewInput->MouseButtons[4],
+                                      SDL_BUTTON(SDL_BUTTON_X2));
 
             // TODO: Handle Mouse button here
 
