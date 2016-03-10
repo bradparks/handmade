@@ -509,21 +509,31 @@ DrawRectangleOutline(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v3 Color, real32 R
 struct entity_basis_p_result {
     v2 P;
     real32 Scale;
+    bool32 Valid;
 };
 
 inline entity_basis_p_result
 GetRenderEntityBasisP(render_group *RenderGroup, render_entity_basis *EntityBasis,
                       v2 ScreenCenter)
 {
-    entity_basis_p_result Result;
-    // TODO: Figure out exactly how Z-based XY displacement should work.
-    v3 EntityBaseP = RenderGroup->MetersToPixels * EntityBasis->Basis->P;
-    real32 ZFudge = 1.0f + 0.0015f * EntityBaseP.z;
-    v2 EntityGroundPoint = ScreenCenter + ZFudge * (EntityBaseP.xy + EntityBasis->Offset.xy);
-    v2 Center = EntityGroundPoint + V2(0, EntityBaseP.z + EntityBasis->Offset.z);
+    entity_basis_p_result Result = {};
 
-    Result.P = Center;
-    Result.Scale = ZFudge;
+
+    // TODO: The values of 20 and 20 seem wrong - did I mess something up here?
+    v3 EntityBaseP = RenderGroup->MetersToPixels * EntityBasis->Basis->P;
+    real32 FocalLength = RenderGroup->MetersToPixels * 20.0f;
+    real32 CameraDistanceAboceTarget = RenderGroup->MetersToPixels * 20.0f;
+    real32 DistanceToPZ = CameraDistanceAboceTarget - EntityBaseP.z;
+    real32 NearClipPlane = RenderGroup->MetersToPixels * 0.2f;
+
+    v3 RayXY = V3(EntityBaseP.xy + EntityBasis->Offset.xy, 1.0f);
+
+    if (DistanceToPZ > NearClipPlane) {
+        v3 ProjectedXY = (1.0f / DistanceToPZ) * FocalLength * RayXY;
+        Result.P = ScreenCenter + ProjectedXY.xy;
+        Result.Scale = ProjectedXY.z;
+        Result.Valid = true;
+    }
 
     return Result;
 }
