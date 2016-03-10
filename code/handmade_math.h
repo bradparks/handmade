@@ -272,7 +272,7 @@ inline v2 operator-(v2 A, v2 B) {
 
 inline v2
 Hadamard(v2 A, v2 B) {
-    v2 Result = {A.x * B.y, A.x * B.y};
+    v2 Result = {A.x * B.x, A.y * B.y};
     return Result;
 }
 
