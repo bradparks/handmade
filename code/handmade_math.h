@@ -23,6 +23,14 @@ union v3 {
         real32 Ignored1_;
         v2 yz;
     };
+    struct {
+        v2 uv;
+        real32 Ignored2_;
+    };
+    struct {
+        real32 Ignored3_;
+        v2 vw;
+    };
     real32 E[3];
 };
 
@@ -533,6 +541,12 @@ GetMaxCornor(rectangle2 Rect) {
 }
 
 inline v2
+GetDim(rectangle2 Rect) {
+    v2 Result = Rect.Max - Rect.Min;
+    return Result;
+}
+
+inline v2
 GetCenter(rectangle2 Rect) {
     v2 Result = 0.5f * (Rect.Min + Rect.Max);
     return Result;
@@ -615,6 +629,12 @@ GetMinCornor(rectangle3 Rect) {
 inline v3
 GetMaxCornor(rectangle3 Rect) {
     v3 Result = Rect.Max;
+    return Result;
+}
+
+inline v3
+GetDim(rectangle3 Rect) {
+    v3 Result = Rect.Max - Rect.Min;
     return Result;
 }
 

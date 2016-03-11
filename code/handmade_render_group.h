@@ -95,10 +95,22 @@ struct render_entry_coordinate_system {
 };
 // }
 
+struct render_group_camera {
+    // NOTE: Camera parameters
+    real32 FocalLength;
+    real32 DistanceAboveTarget;
+};
+
 // TODO: This is dump, this should just be part of
 // the renderer pushbuffer - add correction of coordinates
 // in there and be done with it.
 struct render_group {
+    render_group_camera GameCamera;
+    render_group_camera RenderCamera;
+
+    real32 MetersToPixels; // NOTE: This translate meters _on the monitor_ into pixels _on the monitor_
+    v2 MonitorHalfDimInMeters;
+
     real32 GlobalAlpha;
 
     render_basis *DefaultBasis;
@@ -107,24 +119,5 @@ struct render_group {
     uint32 PushBufferSize;
     uint8 *PushBufferBase;
 };
-
-// NOTE: Renderer API
-
-#if 0
-inline void
-PushBitmap(render_group *Group, loaded_bitmap *Bitmap, v2 Offset, real32 OffsetZ,
-           v4 Color = V4(1, 1, 1, 1));
-
-inline void
-PushRect(render_group *Group, v2 Offset, real32 OffsetZ,
-          v2 Dim, v4 Color);
-
-inline void
-PushRectOutline(render_group *Group, v2 Offset, real32 OffsetZ, v2 Dim,
-                v4 Color = V4(1, 1, 1, 1));
-
-inline void
-Clear(render_group *Group, v4 Color);
-#endif
 
 #endif
