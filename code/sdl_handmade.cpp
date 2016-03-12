@@ -325,7 +325,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    SDL_Window *Window = SDL_CreateWindow("Breakout",
+    SDL_Window *Window = SDL_CreateWindow("Handmade Hero",
                                           SDL_WINDOWPOS_CENTERED,
                                           SDL_WINDOWPOS_CENTERED,
                                           960, 540,
