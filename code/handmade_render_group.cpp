@@ -193,6 +193,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                     environment_map *Middle,
                     environment_map *Bottom)
 {
+    BEGIN_TIMED_BLOCK(DrawRectangleSlowly);
+
     // TODO: Remove this
     real32 PixelsToMeters = 42.0f;
 
@@ -261,6 +263,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
     for (int Y = YMin; Y <= YMax; ++Y) {
         uint32 *Pixel = (uint32 *) Row;
         for (int X = XMin; X <= XMax; ++X) {
+            BEGIN_TIMED_BLOCK(TestPixel);
+
             v2 PixelP = V2i(X, Y);
             v2 d = PixelP - Origin;
 
@@ -272,6 +276,7 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
             real32 Edge3 = Inner(d - YAxis, Perp(YAxis));
 
             if (Edge0 < 0 && Edge1 < 0 && Edge2 < 0 && Edge3 < 0) {
+                BEGIN_TIMED_BLOCK(FillPixel);
 #if 1
                 v2 ScreenSpaceUV = { InvWidthMax * X, FixedCastY };
                 real32 ZDiff = PixelsToMeters * ((real32)Y - OriginY);
@@ -304,6 +309,7 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                 bilinear_sample TexelSample = BilinearSample(Texture, iX, iY);
                 v4 Texel = SRGBBilinearBlend(TexelSample, fX, fY);
 
+#if 0
                 if (NormalMap) {
                     bilinear_sample NormalSample = BilinearSample(NormalMap, iX, iY);
 
@@ -366,6 +372,7 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                     Texel.rgb *= Texel.a;
 #endif
                 }
+#endif
 
                 Texel = Hadamard(Texel, Color);
                 Texel.r = Clamp01(Texel.r);
@@ -390,12 +397,18 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                           ((uint32)(Blended255.r + 0.5f) << 16) |
                           ((uint32)(Blended255.g + 0.5f) << 8) |
                           ((uint32)(Blended255.b + 0.5f) << 0));
+
+                END_TIMED_BLOCK(FillPixel);
             }
 
             ++Pixel;
+
+            END_TIMED_BLOCK(TestPixel);
         }
         Row += Buffer->Pitch;
     }
+
+    END_TIMED_BLOCK(DrawRectangleSlowly);
 }
 
 internal void
@@ -540,6 +553,8 @@ GetRenderEntityBasisP(render_group *RenderGroup, render_entity_basis *EntityBasi
 
 internal void
 RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
+    BEGIN_TIMED_BLOCK(RenderGroupToOutput);
+
     v2 ScreenDim = V2((real32)OutputTarget->Width,
                       (real32)OutputTarget->Height);
 
@@ -642,6 +657,8 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
         }
 
     }
+
+    END_TIMED_BLOCK(RenderGroupToOutput);
 }
 
 internal render_group *

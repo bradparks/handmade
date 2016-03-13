@@ -441,6 +441,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
 
     GroundBuffer->P = *ChunkP;
 
+#if 0
     real32 Width = GameState->World->ChunkDimInMeters.x;
     real32 Height = GameState->World->ChunkDimInMeters.y;
     v2 HalfDim = 0.5f * V2(Width, Height);
@@ -494,6 +495,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
             }
         }
     }
+#endif
 
     RenderGroupToOutput(RenderGroup, Buffer);
     EndTemporaryMemory(GroundMemory);
@@ -670,7 +672,15 @@ SetTopDownAlign(hero_bitmaps *Bitmap, v2 Align) {
     Bitmap->Torso.AlignPercentage = Align;
 }
 
+#if HANDMADE_INTERNAL
+game_memory *DebugGlobalMemory;
+#endif
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
+#if HANDMADE_INTERNAL
+    DebugGlobalMemory = Memory;
+#endif
+    BEGIN_TIMED_BLOCK(GameUpdateAndRender);
+
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
            ArrayCount(Input->Controllers[0].Buttons));
 
@@ -1408,6 +1418,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
     CheckArena(&GameState->WorldArena);
     CheckArena(&TranState->TranArena);
+
+    END_TIMED_BLOCK(GameUpdateAndRender);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples) {

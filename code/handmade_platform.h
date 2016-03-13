@@ -129,6 +129,31 @@ typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
 #define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(thread_context *Thread, const char *Filename, uint32 MemorySize, void *Memory)
 typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
 
+enum {
+    DebugCycleCounter_GameUpdateAndRender,
+    DebugCycleCounter_RenderGroupToOutput,
+    DebugCycleCounter_DrawRectangleSlowly,
+    DebugCycleCounter_TestPixel,
+    DebugCycleCounter_FillPixel,
+    DebugCycleCounter_Count,
+};
+
+typedef struct debug_cycle_count {
+    uint64 CycleCount;
+    uint32 HitCount;
+} debug_cycle_count;
+
+extern struct game_memory *DebugGlobalMemory;
+
+#if _MSC_VER
+#define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = __rdtsc()
+#define END_TIMED_BLOCK(ID) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID; ++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount
+#else
+#include <x86intrin.h>
+#define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = _rdtsc()
+#define END_TIMED_BLOCK(ID) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += _rdtsc() - StartCycleCount##ID; ++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount
+#endif
+
 #endif
 
 /*
@@ -207,6 +232,10 @@ typedef struct game_memory {
     debug_platform_free_file_memory *DEBUGPlatformFreeFileMemory;
     debug_platform_read_entire_file *DEBUGPlatformReadEntireFile;
     debug_platform_write_entire_file *DEBUGPlatformWriteEntireFile;
+
+#if HANDMADE_INTERNAL
+    debug_cycle_count Counters[DebugCycleCounter_Count];
+#endif
 } game_memory;
 
 #define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer)

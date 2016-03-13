@@ -778,8 +778,28 @@ Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End) {
 }
 
 internal void
+HandleDebugCycleCounters(game_memory *Memory) {
+#if HANDMADE_INTERNAL
+    printf("DEBUG CYCLE COUNTS:\n");
+    for (uint32 CounterIndex = 0; CounterIndex < ArrayCount(Memory->Counters); ++CounterIndex) {
+        debug_cycle_count *Counter = Memory->Counters + CounterIndex;
+        if (Counter->HitCount) {
+            printf("  %d: %llucy %uh %llucy/h\n",
+                   CounterIndex,
+                   Counter->CycleCount,
+                   Counter->HitCount,
+                   Counter->CycleCount / Counter->HitCount);
+        }
+        Counter->HitCount = 0;
+        Counter->CycleCount = 0;
+    }
+#endif
+}
+
+internal void
 Win32DebugDrawVertical(win32_offscreen_buffer *BackBuffer,
-                       int X, int Top, int Bottom, uint32 Color) {
+                       int X, int Top, int Bottom, uint32 Color)
+{
     if (Top <= 0) {
         Top = 0;
     }
@@ -1223,6 +1243,7 @@ WinMain(HINSTANCE Instance,
                         }
                         if (Game.UpdateAndRender) {
                             Game.UpdateAndRender(&Thread, &GameMemory, NewInput, &Buffer);
+                            HandleDebugCycleCounters(&GameMemory);
                         }
 
                         LARGE_INTEGER AudioWallClock = Win32GetWallClock();

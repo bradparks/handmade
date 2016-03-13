@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <libproc.h>
 #include <sys/mman.h>
-#include <x86intrin.h>
 
 #include "sdl_handmade.h"
 
@@ -127,6 +126,26 @@ DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile) {
 
     return Result;
 }
+
+internal void
+HandleDebugCycleCounters(game_memory *Memory) {
+#if HANDMADE_INTERNAL
+    printf("DEBUG CYCLE COUNTS:\n");
+    for (uint32 CounterIndex = 0; CounterIndex < ArrayCount(Memory->Counters); ++CounterIndex) {
+        debug_cycle_count *Counter = Memory->Counters + CounterIndex;
+        if (Counter->HitCount) {
+            printf("  %d: %llucy %uh %llucy/h\n",
+                   CounterIndex,
+                   Counter->CycleCount,
+                   Counter->HitCount,
+                   Counter->CycleCount / Counter->HitCount);
+        }
+        Counter->HitCount = 0;
+        Counter->CycleCount = 0;
+    }
+#endif
+}
+
 
 inline time_t
 SDLGetLastWriteTime(const char *Filename) {
@@ -435,6 +454,7 @@ int main(int argc, char *argv[]) {
 
             if (Game.UpdateAndRender) {
                 Game.UpdateAndRender(&Thread, &GameMemory, NewInput, &Buffer);
+                HandleDebugCycleCounters(&GameMemory);
             }
 
             // TODO: Game audio support here
