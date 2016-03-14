@@ -1149,9 +1149,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
     v3 CameraP = Subtract(GameState->World, &GameState->CameraP, &SimCenterP);
 
-    render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
-    Basis->P = V3(0, 0, 0);
-    RenderGroup->DefaultBasis = Basis;
+    {
+        render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
+        Basis->P = V3(0, 0, 0);
+        RenderGroup->DefaultBasis = Basis;
+    }
 
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(ScreenBounds), V4(1, 1, 0, 1));
     PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0, 1, 1, 1));
