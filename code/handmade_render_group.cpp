@@ -478,6 +478,7 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAx
     real32 Inv255 = 1.0f / 255.0f;
     __m128 Inv255_4x = _mm_set1_ps(Inv255);
 
+    __m128 Half_4x = _mm_set1_ps(0.5f);
     __m128 One = _mm_set1_ps(1.0f);
     __m128 One255_4x = _mm_set1_ps(255.0f);
     __m128 Zero = _mm_set1_ps(0.0f);
@@ -666,16 +667,21 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAx
             Blendedb = _mm_mul_ps(One255_4x, _mm_sqrt_ps(Blendedb));
             Blendeda = _mm_mul_ps(One255_4x, Blendeda);
 
-            for (int I = 0; I < 4; ++I) {
-                if (ShouldFill[I]) {
-                    // NOTE: Repack
-                    *(Pixel + I) = (((uint32)(M(Blendeda, I) + 0.5f) << 24) |
-                                    ((uint32)(M(Blendedr, I) + 0.5f) << 16) |
-                                    ((uint32)(M(Blendedg, I) + 0.5f) << 8) |
-                                    ((uint32)(M(Blendedb, I) + 0.5f) << 0));
+            // TODO: Should we set the rounding mode to nearest and save the adds?
+            __m128i Intr = _mm_cvttps_epi32(_mm_add_ps(Blendedr, Half_4x));
+            __m128i Intg = _mm_cvttps_epi32(_mm_add_ps(Blendedg, Half_4x));
+            __m128i Intb = _mm_cvttps_epi32(_mm_add_ps(Blendedb, Half_4x));
+            __m128i Inta = _mm_cvttps_epi32(_mm_add_ps(Blendeda, Half_4x));
 
-                }
-            }
+            __m128i Sr = _mm_slli_epi32(Intr, 16);
+            __m128i Sg = _mm_slli_epi32(Intg, 8);
+            __m128i Sb = Intb;
+            __m128i Sa = _mm_slli_si128(Inta, 24);
+
+            __m128i Out = _mm_or_si128(_mm_or_si128(Sr, Sg), _mm_or_si128(Sb, Sa));
+
+            // TODO: Write only the pixels where ShouldFill[I] == true!
+            _mm_storeu_si128((__m128i *)Pixel, Out);
 
             Pixel += 4;
 
