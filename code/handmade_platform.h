@@ -135,7 +135,7 @@ enum {
     DebugCycleCounter_DrawRectangleSlowly,
     DebugCycleCounter_TestPixel,
     DebugCycleCounter_FillPixel,
-    DebugCycleCounter_DrawRectangleHopefulQuickly,
+    DebugCycleCounter_DrawRectangleHopefullyQuickly,
     DebugCycleCounter_Count,
 };
 
