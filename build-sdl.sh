@@ -2,7 +2,7 @@
 
 handmade_src=`pwd`/code/handmade.cpp
 handmade_platform_src=`pwd`/code/sdl_handmade.cpp
-cflags="-O2 -W -Wno-unused-parameter -DHANDMADE_INTERNAL=1 -DHANDMADE_SLOW=1 -DHANDMADE_SDL=1 -std=c++11"
+cflags="-O2 -Wall -W -Wno-missing-braces -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter -DHANDMADE_INTERNAL=1 -DHANDMADE_SLOW=1 -DHANDMADE_SDL=1 -std=c++11"
 ldflags="-lsdl2"
 
 [ ! -d "build" ] && mkdir build
