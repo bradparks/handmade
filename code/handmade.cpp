@@ -497,7 +497,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
     }
 #endif
 
-    RenderGroupToOutput(RenderGroup, Buffer);
+    TiledRenderGroupToOutput(RenderGroup, Buffer);
     EndTemporaryMemory(GroundMemory);
 }
 
@@ -948,7 +948,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         }
 
         GameState->TestDiffuse = MakeEmptyBitmap(&TranState->TranArena, 256, 256, false);
-        DrawRectangle(&GameState->TestDiffuse, V2(0, 0), V2i(GameState->TestDiffuse.Width, GameState->TestDiffuse.Height), V4(0.5f, 0.5f, 0.5f, 1.0f));
+        //DrawRectangle(&GameState->TestDiffuse, V2(0, 0), V2i(GameState->TestDiffuse.Width, GameState->TestDiffuse.Height), V4(0.5f, 0.5f, 0.5f, 1.0f));
         GameState->TestNormal = MakeEmptyBitmap(&TranState->TranArena, GameState->TestDiffuse.Width, GameState->TestDiffuse.Height);
         MakeSphereNormalMap(&GameState->TestNormal, 0.0f);
         MakeSphereDiffuseMap(&GameState->TestDiffuse);
@@ -1409,7 +1409,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     }
 #endif
 
-    RenderGroupToOutput(RenderGroup, DrawBuffer);
+    TiledRenderGroupToOutput(RenderGroup, DrawBuffer);
 
     // TODO: Make sure we hoist the camera undate out to a place where the renderer
     // can know about the location of the camera at the end of the frame so there isn't

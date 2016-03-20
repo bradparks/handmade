@@ -788,4 +788,21 @@ GetClampedRectArea(rectangle2i A) {
     return Result;
 }
 
+inline bool32
+HasArea(rectangle2i A) {
+    bool32 Result = ((A.MinX < A.MaxX) && (A.MinY < A.MaxY));
+
+    return Result;
+}
+
+inline rectangle2i
+InvertedInfinityRectangle(void) {
+    rectangle2i Result;
+
+    Result.MinX = Result.MinY = INT_MAX;
+    Result.MaxX = Result.MaxY = -INT_MAX;
+
+    return Result;
+}
+
 #endif
