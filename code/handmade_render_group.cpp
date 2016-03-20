@@ -415,16 +415,9 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
 
 internal void
 DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,
-                     loaded_bitmap *Texture)
+                     loaded_bitmap *Texture, bool32 Even)
 {
     BEGIN_TIMED_BLOCK(DrawRectangleQuickly);
-
-    __m128 ValueA = _mm_set_ps(1.0f, 2.0f, 3.0f, 4.0f);
-    __m128 ValueB = _mm_set_ps(10.0f, 100.0f, 1000.0f, 10000.0f);
-    __m128 Sum = _mm_add_ps(ValueA, ValueB);
-
-    // TODO: Remove this
-    real32 PixelsToMeters = 42.0f;
 
     // NOTE: Premultiply color up front
     Color.rgb *= Color.a;
@@ -444,40 +437,31 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
     real32 InvYAxisLengthSq = 1.0f / LengthSq(YAxis);
 
     // TODO: IMPORTANT: STOP DOING THIS ONCE WE HAVE REAL ROW LOADING
-    int WidthMax = (Buffer->Width - 1) - 3;
-    int HeightMax = (Buffer->Height - 1) - 3;
+    int WidthMax = Buffer->Width - 3;
+    int HeightMax = Buffer->Height - 3;
 
-    real32 InvWidthMax = 1.0f / (real32)WidthMax;
-    real32 InvHeightMax = 1.0f / (real32)HeightMax;
-
-    // TODO: This will need to be specified separately!!!
-    real32 OriginZ = 0.0f;
-    real32 OriginY = (Origin + 0.5f * XAxis + 0.5f * YAxis).y;
-    real32 FixedCastY = InvHeightMax * OriginY;
-
-    int XMin = WidthMax;
-    int XMax = 0;
-    int YMin = HeightMax;
-    int YMax = 0;
+    rectangle2i FillRect = {WidthMax, HeightMax, 0, 0};
 
     v2 P[4] = { Origin, Origin + XAxis, Origin + XAxis + YAxis, Origin + YAxis };
     for (uint32 PIndex = 0; PIndex < ArrayCount(P); ++PIndex) {
         v2 TestP = P[PIndex];
         int FloorX = FloorReal32ToInt32(TestP.x);
-        int CeilX = CeilReal32ToInt32(TestP.x);
+        int CeilX = CeilReal32ToInt32(TestP.x) + 1;
         int FloorY = FloorReal32ToInt32(TestP.y);
-        int CeilY = CeilReal32ToInt32(TestP.y);
+        int CeilY = CeilReal32ToInt32(TestP.y) + 1;
 
-        if (XMin > FloorX) { XMin = FloorX; }
-        if (YMin > FloorY) { YMin = FloorY; }
-        if (XMax < CeilX) { XMax = CeilX; }
-        if (YMax < CeilY) { YMax = CeilY; }
+        if (FillRect.MinX > FloorX) { FillRect.MinX = FloorX; }
+        if (FillRect.MinY > FloorY) { FillRect.MinY = FloorY; }
+        if (FillRect.MaxX < CeilX) { FillRect.MaxX = CeilX; }
+        if (FillRect.MaxY < CeilY) { FillRect.MaxY = CeilY; }
     }
 
-    if (XMin < 0) { XMin = 0; }
-    if (YMin < 0) { YMin = 0; }
-    if (XMax > WidthMax) { XMax = WidthMax; }
-    if (YMax > HeightMax) { YMax = HeightMax; }
+    rectangle2i ClipRect = {0, 0, WidthMax, HeightMax};
+    FillRect = Intersect(ClipRect, FillRect);
+
+    if ((!Even) == (FillRect.MinY & 1)) {
+        FillRect.MinY += 1;
+    }
 
     v2 nXAxis = InvXAxisLengthSq * XAxis;
     v2 nYAxis = InvYAxisLengthSq * YAxis;
@@ -513,25 +497,32 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
     __m128 HeightM2 = _mm_set1_ps((real32)(Texture->Height - 2));
 
     uint8 *Row = ((uint8 *) Buffer->Memory +
-                  XMin * BITMAP_BYTES_PER_PIXEL +
-                  YMin * Buffer->Pitch);
+                  FillRect.MinX * BITMAP_BYTES_PER_PIXEL +
+                  FillRect.MinY * Buffer->Pitch);
+
+    uint32 RowAdvance = 2 * Buffer->Pitch;
 
     int32 TexturePitch = Texture->Pitch;
     void *TextureMemory = Texture->Memory;
-
+    int MinY = FillRect.MinY;
+    int MaxY = FillRect.MaxY;
+    int MinX = FillRect.MinX;
+    int MaxX = FillRect.MaxX;
     BEGIN_TIMED_BLOCK(ProcessPixel);
-    for (int Y = YMin; Y <= YMax; ++Y) {
+    for (int Y = MinY; Y < MaxY; Y += 2) {
         __m128 PixelPy = _mm_set1_ps((real32)Y);
         PixelPy = _mm_sub_ps(PixelPy, Originy_4x);
+        __m128 PynX = _mm_mul_ps(PixelPy, nXAxisy_4x);
+        __m128 PynY = _mm_mul_ps(PixelPy, nYAxisy_4x);
 
-        __m128 PixelPx = _mm_set_ps((real32)(XMin + 3),
-                                    (real32)(XMin + 2),
-                                    (real32)(XMin + 1),
-                                    (real32)(XMin + 0));
+        __m128 PixelPx = _mm_set_ps((real32)(FillRect.MinX + 3),
+                                    (real32)(FillRect.MinX + 2),
+                                    (real32)(FillRect.MinX + 1),
+                                    (real32)(FillRect.MinX + 0));
         PixelPx = _mm_sub_ps(PixelPx, Originx_4x);
 
         uint32 *Pixel = (uint32 *)Row;
-        for (int XI = XMin; XI <= XMax; XI += 4) {
+        for (int XI = MinX; XI < MaxX; XI += 4) {
 
 #define mmSquare(a) _mm_mul_ps(a, a)
 #define M(a, i) ((float *)&(a))[i]
@@ -539,8 +530,8 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
 
             IACA_START;
 
-            __m128 U = _mm_add_ps(_mm_mul_ps(PixelPx, nXAxisx_4x), _mm_mul_ps(PixelPy, nXAxisy_4x));
-            __m128 V = _mm_add_ps(_mm_mul_ps(PixelPx, nYAxisx_4x), _mm_mul_ps(PixelPy, nYAxisy_4x));
+            __m128 U = _mm_add_ps(_mm_mul_ps(PixelPx, nXAxisx_4x), PynX);
+            __m128 V = _mm_add_ps(_mm_mul_ps(PixelPx, nYAxisx_4x), PynY);
 
             __m128i WriteMask = _mm_castps_si128(_mm_and_ps(_mm_and_ps(_mm_cmpge_ps(U, Zero),
                                                                        _mm_cmple_ps(U, One)),
@@ -721,10 +712,10 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
             IACA_END;
         }
 
-        Row += Buffer->Pitch;
+        Row += RowAdvance;
     }
 
-    END_TIMED_BLOCK_COUNTED(ProcessPixel, (XMax - XMin + 1) * (YMax - YMin + 1));
+    END_TIMED_BLOCK_COUNTED(ProcessPixel, GetClampedRectArea(FillRect) / 2);
 
     END_TIMED_BLOCK(DrawRectangleQuickly);
 }
@@ -914,7 +905,13 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
                                      Basis.Scale * V2(Entry->Size.x, 0),
                                      Basis.Scale * V2(0, Entry->Size.y),
                                      Entry->Color,
-                                     Entry->Bitmap);
+                                     Entry->Bitmap, false);
+
+                DrawRectangleQuickly(OutputTarget, Basis.P,
+                                     Basis.Scale * V2(Entry->Size.x, 0),
+                                     Basis.Scale * V2(0, Entry->Size.y),
+                                     Entry->Color,
+                                     Entry->Bitmap, true);
 #endif
 
                 BaseAddress += sizeof(*Entry);
