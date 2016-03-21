@@ -886,13 +886,44 @@ Win32DebugSyncDisplay(win32_offscreen_buffer *BackBuffer,
 }
 #endif
 
+struct work_queue_entry {
+    char *StringToPrint;
+};
+
+global_variable uint32 NextEntryToDo;
+global_variable uint32 EntryCount;
+work_queue_entry Entries[256];
+
+internal void
+PushString(char *String) {
+    Assert(EntryCount < ArrayCount(Entries));
+
+    // TODO: These writes are not in order!
+    work_queue_entry *Entry = Entries + EntryCount++;
+    Entry->StringToPrint = String;
+}
+
+struct win32_thread_info {
+    int LogicalThreadIndex;
+};
+
 DWORD WINAPI
 ThreadProc(LPVOID lpParameter) {
-    char *StringToPrint = (char *)lpParameter;
+    win32_thread_info *ThreadInfo = (win32_thread_info *)lpParameter;
 
     for (;;) {
-        printf("%s", StringToPrint);
-        Sleep(1000);
+        if (NextEntryToDo < EntryCount) {
+            // TODO: This line is not interlocked, so two threads could see the same value
+            // TODO: Compiler doesn't know that multiple threads could write this value!
+            int EntryIndex = NextEntryToDo++;
+
+            // TODO: These reads are not in order!
+            work_queue_entry *Entry = Entries + EntryIndex;
+
+            char Buffer[256];
+            snprintf(Buffer, ArrayCount(Buffer), "Thread %u: %s\n", ThreadInfo->LogicalThreadIndex, Entry->StringToPrint);
+            printf("%s\n", Buffer);
+        }
     }
 }
 
@@ -904,10 +935,27 @@ WinMain(HINSTANCE Instance,
 {
     win32_state Win32State = {};
 
-    void *Param = "Thread started\n";
-    DWORD ThreadID;
-    HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Param, 0, &ThreadID);
-    CloseHandle(ThreadHandle);
+    win32_thread_info ThreadInfo[15];
+
+    for (int ThreadIndex = 0; ThreadIndex < ArrayCount(ThreadInfo); ++ThreadIndex) {
+        win32_thread_info *Info = ThreadInfo + ThreadIndex;
+        Info->LogicalThreadIndex = ThreadIndex;
+
+        DWORD ThreadID;
+        HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Info, 0, &ThreadID);
+        CloseHandle(ThreadHandle);
+    }
+
+    PushString("String 0");
+    PushString("String 1");
+    PushString("String 2");
+    PushString("String 3");
+    PushString("String 4");
+    PushString("String 5");
+    PushString("String 6");
+    PushString("String 7");
+    PushString("String 8");
+    PushString("String 9");
 
     LARGE_INTEGER PerfCountFrequencyResult;
     QueryPerformanceFrequency(&PerfCountFrequencyResult);
