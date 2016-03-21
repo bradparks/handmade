@@ -886,6 +886,16 @@ Win32DebugSyncDisplay(win32_offscreen_buffer *BackBuffer,
 }
 #endif
 
+DWORD WINAPI
+ThreadProc(LPVOID lpParameter) {
+    char *StringToPrint = (char *)lpParameter;
+
+    for (;;) {
+        printf("%s", StringToPrint);
+        Sleep(1000);
+    }
+}
+
 int CALLBACK
 WinMain(HINSTANCE Instance,
         HINSTANCE hPrevInstance,
@@ -893,6 +903,11 @@ WinMain(HINSTANCE Instance,
         int       nCmdShow)
 {
     win32_state Win32State = {};
+
+    void *Param = "Thread started\n";
+    DWORD ThreadID;
+    HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Param, 0, &ThreadID);
+    CloseHandle(ThreadHandle);
 
     LARGE_INTEGER PerfCountFrequencyResult;
     QueryPerformanceFrequency(&PerfCountFrequencyResult);
