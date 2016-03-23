@@ -982,28 +982,58 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
     END_TIMED_BLOCK(RenderGroupToOutput);
 }
 
+struct tile_render_work {
+    render_group *RenderGroup;
+    loaded_bitmap *OutputTarget;
+    rectangle2i ClipRect;
+};
+
 internal void
-TiledRenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
-    int TileCountX = 4;
-    int TileCountY = 4;
+DoTileRenderWork(void *Data) {
+    tile_render_work *Work = (tile_render_work *)Data;
+
+    RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, false);
+    RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, true);
+}
+
+internal void
+TiledRenderGroupToOutput(//platform_work_queue *RenderQueue,
+                         render_group *RenderGroup, loaded_bitmap *OutputTarget)
+{
+    int const TileCountX = 4;
+    int const TileCountY = 4;
+    tile_render_work WorkArray[TileCountX * TileCountY];
 
     // TODO: Make sure that allocator allocate enough space so we can round these?
     // TODO: Round to 4?
     int TileWidth = OutputTarget->Width / TileCountX;
     int TileHeight = OutputTarget->Height / TileCountY;
+
+    int WorkCount = 0;
     for (int TileY = 0; TileY < TileCountY; ++TileY) {
         for (int TileX = 0; TileX < TileCountX; ++TileX) {
+            tile_render_work *Work = WorkArray + WorkCount++;
+
             // TODO: Buffers with overflow!!!
             rectangle2i ClipRect;
-
             ClipRect.MinX = TileX * TileWidth + 4;
             ClipRect.MaxX = ClipRect.MinX + TileWidth - 4;
             ClipRect.MinY = TileY * TileHeight + 4;
             ClipRect.MaxY = ClipRect.MinY + TileHeight - 4;
 
-            RenderGroupToOutput(RenderGroup, OutputTarget, ClipRect, false);
-            RenderGroupToOutput(RenderGroup, OutputTarget, ClipRect, true);
+            Work->RenderGroup = RenderGroup;
+            Work->OutputTarget = OutputTarget;
+            Work->ClipRect = ClipRect;
+
+            //RenderQueue->AddEntry(RenderQueue, DoTileRenderWork, &Work);
         }
+    }
+
+    //RenderQueue->CompleteAllWork(RenderQueue);
+
+    for (int WorkIndex = 0; WorkIndex < WorkCount; ++WorkIndex) {
+        tile_render_work *Work = WorkArray + WorkIndex;
+        DoTileRenderWork(Work);
     }
 }
 

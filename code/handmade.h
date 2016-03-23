@@ -12,6 +12,16 @@
  *     - Texture
  *   - Optimization
  *
+ * - Asset streaming
+ *
+ * - Debug code
+ *   - Fonts
+ *   - Logging
+ *   - Diagramming
+ *   - (A LITTLE GUI, but only a little!) Switches / sliders / etc.
+ *   - Draw tile chunks so we can verify things are aligned / in the chunks we wangt them to be in / etc.
+ *   - Thread visualization
+ *
  * ARCHITECTURE EXPLORATION
  * - Z!
  *   - Need to make a solid concept of ground levels so the camera can
@@ -38,15 +48,6 @@
  * - Implement multiple sim regions per frame
  *   - Per-entity clocking
  *   - Sim region merging? For multiple players?
- *
- * - Debug code
- *   - Fonts
- *   - Logging
- *   - Diagramming
- *   - (A LITTLE GUI, but only a little!) Switches / sliders / etc.
- *   - Draw tile chunks so we can verify things are aligned / in the chunks we wangt them to be in / etc.
- *
- * - Asset streaming
  *
  * - Audio
  *   - Sound effect triggers
