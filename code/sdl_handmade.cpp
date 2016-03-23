@@ -320,8 +320,100 @@ SDLDisplayBufferInWindow(sdl_offscreen_buffer *Buffer) {
     SDL_RenderPresent(Buffer->Renderer);
 }
 
+struct platform_work_queue_entry {
+    platform_work_queue_callback *Callback;
+    void *Data;
+};
+
+struct platform_work_queue {
+    int32 volatile CompletionGoal;
+    SDL_atomic_t CompletionCount;
+
+    SDL_atomic_t NextEntryToWrite;
+    SDL_atomic_t NextEntryToRead;
+
+    SDL_sem *Sem;
+
+    platform_work_queue_entry Entries[256];
+};
+
+struct sdl_thread_info {
+    platform_work_queue *Queue;
+};
+
+
+internal void
+SDLAddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data) {
+    int NewNextEntryToWrite = (Queue->NextEntryToWrite.value + 1 ) % ArrayCount(Queue->Entries);
+    Assert(NewNextEntryToWrite != Queue->NextEntryToRead.value);
+    platform_work_queue_entry *Entry = Queue->Entries + Queue->NextEntryToWrite.value;
+    Entry->Callback = Callback;
+    Entry->Data = Data;
+    ++Queue->CompletionGoal;
+
+    SDL_CompilerBarrier();
+    _mm_sfence();
+
+    Queue->NextEntryToWrite.value = NewNextEntryToWrite;
+    SDL_SemPost(Queue->Sem);
+}
+
+internal bool32
+SDLDoNextWorkQueueEntry(platform_work_queue *Queue) {
+    bool32 WeShouldSleep = false;
+
+    int OriginalNextEntryToRead = Queue->NextEntryToRead.value;
+    int NewNextEntryToRead = (OriginalNextEntryToRead + 1) % ArrayCount(Queue->Entries);
+    if (OriginalNextEntryToRead != Queue->NextEntryToWrite.value) {
+        if (SDL_AtomicCAS(&Queue->NextEntryToRead, OriginalNextEntryToRead, NewNextEntryToRead)) {
+            platform_work_queue_entry Entry = Queue->Entries[OriginalNextEntryToRead];
+            Entry.Callback(Queue, Entry.Data);
+            SDL_AtomicIncRef(&Queue->CompletionCount);
+        }
+    } else {
+        WeShouldSleep = true;
+    }
+
+    return WeShouldSleep;
+}
+
+internal void
+SDLCompleteAllWork(platform_work_queue *Queue) {
+    while (Queue->CompletionGoal != Queue->CompletionCount.value) {
+        SDLDoNextWorkQueueEntry(Queue);
+    }
+
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount.value = 0;
+}
+
+internal int
+ThreadProc(void *Data) {
+    sdl_thread_info *ThreadInfo = (sdl_thread_info *)Data;
+
+    for (;;) {
+        if (SDLDoNextWorkQueueEntry(ThreadInfo->Queue)) {
+            SDL_SemWait(ThreadInfo->Queue->Sem);
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     sdl_state SDLState = {};
+
+    sdl_thread_info ThreadInfo[7];
+
+    uint32 InitialCount = 0;
+    uint32 ThreadCount = ArrayCount(ThreadInfo);
+    platform_work_queue Queue = {};
+    Queue.Sem = SDL_CreateSemaphore(0);
+
+    for (uint32 ThreadIndex = 0; ThreadIndex < ThreadCount; ++ThreadIndex) {
+        sdl_thread_info *Info = ThreadInfo + ThreadIndex;
+        Info->Queue = &Queue;
+
+        SDL_Thread *Thread = SDL_CreateThread(ThreadProc, 0, Info);
+    }
 
     GlobalPerfCountFrequency = SDL_GetPerformanceFrequency();
 
@@ -371,6 +463,9 @@ int main(int argc, char *argv[]) {
     game_memory GameMemory = {};
     GameMemory.PermanentStorageSize = Megabytes(64);
     GameMemory.TransientStorageSize = Gigabytes(1);
+    GameMemory.HighPriorityQueue = &Queue;
+    GameMemory.PlatformAddEntry = SDLAddEntry;
+    GameMemory.PlatformCompleteAllWork = SDLCompleteAllWork;
     GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
     GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
     GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;

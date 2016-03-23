@@ -45,7 +45,6 @@ extern "C" {
 #include <intrin.h>
 #elif COMPILER_LLVM
 #include <x86intrin.h>
-#include <smmintrin.h>
 #else
 #error SSE/NEON optimizations are not available for this compiler yet!!!
 #endif
