@@ -101,6 +101,8 @@ typedef double real64;
 
 // TODO: swap, min, max ... macros ???
 
+#define Align16(Value) ((Value + 15) & ~15)
+
 inline uint32
 SafeTruncateUInt64(uint64 Value) {
     // TODO: Defines for maximum values UInt32Max

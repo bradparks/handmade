@@ -247,11 +247,10 @@ SDLResizeDIBSection(SDL_Window *Window, sdl_offscreen_buffer *Buffer,
                                         SDL_PIXELFORMAT_ARGB8888,
                                         SDL_TEXTUREACCESS_STREAMING,
                                         Buffer->Width, Buffer->Height);
-
-    int BitmapMemorySize = (Buffer->Width * Buffer->Height) * BytesPerPixel;
+    Buffer->Pitch = Align16(Width * BytesPerPixel);
+    int BitmapMemorySize = Buffer->Pitch * Buffer->Height;
     Buffer->Memory = mmap(0, BitmapMemorySize, PROT_READ | PROT_WRITE,
                           MAP_PRIVATE | MAP_ANON, -1, 0);
-    Buffer->Pitch = Width * BytesPerPixel;
 }
 
 internal void
@@ -315,7 +314,7 @@ SDLProcessPendingMessage(sdl_state *State, game_controller_input *KeyboardContro
 
 internal void
 SDLDisplayBufferInWindow(sdl_offscreen_buffer *Buffer) {
-    SDL_UpdateTexture(Buffer->Texture, 0, Buffer->Memory, Buffer->Width * 4);
+    SDL_UpdateTexture(Buffer->Texture, 0, Buffer->Memory, Buffer->Pitch);
     SDL_RenderCopyEx(Buffer->Renderer, Buffer->Texture, 0, 0, 0, 0, SDL_FLIP_VERTICAL);
     SDL_RenderPresent(Buffer->Renderer);
 }
@@ -352,7 +351,6 @@ SDLAddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, 
     ++Queue->CompletionGoal;
 
     SDL_CompilerBarrier();
-    _mm_sfence();
 
     Queue->NextEntryToWrite.value = NewNextEntryToWrite;
     SDL_SemPost(Queue->Sem);

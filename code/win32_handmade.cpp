@@ -344,9 +344,9 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
     Buffer->Info.bmiHeader.biBitCount = 32;
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
-    int BitmapMemorySize = (Buffer->Width * Buffer->Height) * BytesPerPixel;
+    Buffer->Pitch = Align16(Width * BytesPerPixel);
+    int BitmapMemorySize = Buffer->Pitch * Buffer->Height;
     Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    Buffer->Pitch = Width * BytesPerPixel;
 
     // TODO: Probably clear this to black
 }
@@ -913,7 +913,6 @@ Win32AddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback
     Entry->Data = Data;
     ++Queue->CompletionGoal;
     _WriteBarrier();
-    _mm_sfence();
     Queue->NextEntryToWrite = NewNextEntryToWrite;
     ReleaseSemaphore(Queue->SemaphoreHandle, 1, 0);
 }

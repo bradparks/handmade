@@ -452,19 +452,32 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
     }
 
     if (HasArea(FillRect)) {
-        __m128i StartupClipMask = _mm_set1_epi8(-1);
-        int FillWidth = FillRect.MaxX - FillRect.MinX;
-        int FillWidthAlign = FillWidth & 3;
-        if (FillWidthAlign) {
-            int Adjustment = 4 - FillWidthAlign;
-            // TODO: This is stupid.
-            switch (Adjustment) {
-                case 1: StartupClipMask = _mm_slli_si128(StartupClipMask, 1 * 4); break;
-                case 2: StartupClipMask = _mm_slli_si128(StartupClipMask, 2 * 4); break;
-                case 3: StartupClipMask = _mm_slli_si128(StartupClipMask, 3 * 4); break;
-            }
-            FillWidth += Adjustment;
-            FillRect.MinX = FillRect.MaxX - FillWidth;
+        __m128i StartClipMask = _mm_set1_epi8(-1);
+        __m128i EndClipMask = _mm_set1_epi8(-1);
+
+        __m128i StartClipMasks[] = {
+            _mm_slli_si128(StartClipMask, 0 * 4),
+            _mm_slli_si128(StartClipMask, 1 * 4),
+            _mm_slli_si128(StartClipMask, 2 * 4),
+            _mm_slli_si128(StartClipMask, 3 * 4),
+        };
+
+        __m128i EndClipMasks[] = {
+            _mm_srli_si128(EndClipMask, 0 * 4),
+            _mm_srli_si128(EndClipMask, 3 * 4),
+            _mm_srli_si128(EndClipMask, 2 * 4),
+            _mm_srli_si128(EndClipMask, 1 * 4),
+        };
+
+
+        if (FillRect.MinX & 3) {
+            StartClipMask = StartClipMasks[FillRect.MinX & 3];
+            FillRect.MinX = FillRect.MinX & ~3;
+        }
+
+        if (FillRect.MaxX & 3) {
+            EndClipMask = EndClipMasks[FillRect.MaxX & 3];
+            FillRect.MaxX = (FillRect.MaxX & ~3) + 4;
         }
 
         v2 nXAxis = InvXAxisLengthSq * XAxis;
@@ -526,7 +539,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
                                         (real32)(FillRect.MinX + 0));
             PixelPx = _mm_sub_ps(PixelPx, Originx_4x);
 
-            __m128i ClipMask = StartupClipMask;
+            __m128i ClipMask = StartClipMask;
 
             uint32 *Pixel = (uint32 *)Row;
             for (int XI = MinX; XI < MaxX; XI += 4) {
@@ -718,7 +731,11 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
 
                 Pixel += 4;
 
-                ClipMask = _mm_set1_epi8(-1);
+                if ((XI + 8) < MaxX) {
+                    ClipMask = _mm_set1_epi8(-1);
+                } else {
+                    ClipMask = EndClipMask;
+                }
 
                 IACA_END;
             }
@@ -1004,21 +1021,30 @@ TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
     tile_render_work WorkArray[TileCountX * TileCountY];
 
     // TODO: Make sure that allocator allocate enough space so we can round these?
-    // TODO: Round to 4?
+    Assert(((uintptr)OutputTarget->Memory & 15) == 0);
     int TileWidth = OutputTarget->Width / TileCountX;
     int TileHeight = OutputTarget->Height / TileCountY;
+
+    TileWidth = ((TileWidth + 3) / 4) * 4;
 
     int WorkCount = 0;
     for (int TileY = 0; TileY < TileCountY; ++TileY) {
         for (int TileX = 0; TileX < TileCountX; ++TileX) {
             tile_render_work *Work = WorkArray + WorkCount++;
 
-            // TODO: Buffers with overflow!!!
             rectangle2i ClipRect;
-            ClipRect.MinX = TileX * TileWidth + 4;
-            ClipRect.MaxX = ClipRect.MinX + TileWidth - 4;
-            ClipRect.MinY = TileY * TileHeight + 4;
-            ClipRect.MaxY = ClipRect.MinY + TileHeight - 4;
+            ClipRect.MinX = TileX * TileWidth;
+            ClipRect.MaxX = ClipRect.MinX + TileWidth;
+            ClipRect.MinY = TileY * TileHeight;
+            ClipRect.MaxY = ClipRect.MinY + TileHeight;
+
+            if (TileX == (TileCountX - 1)) {
+                ClipRect.MaxX = OutputTarget->Width;
+            }
+
+            if (TileY == (TileCountY - 1)) {
+                ClipRect.MaxY = OutputTarget->Height;
+            }
 
             Work->RenderGroup = RenderGroup;
             Work->OutputTarget = OutputTarget;
