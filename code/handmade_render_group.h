@@ -46,11 +46,6 @@ struct render_basis {
     v3 P;
 };
 
-struct render_entity_basis {
-    render_basis *Basis;
-    v3 Offset;
-};
-
 enum render_group_entry_type {
     RenderGroupEntryType_render_entry_clear,
     RenderGroupEntryType_render_entry_bitmap,
@@ -67,15 +62,16 @@ struct render_entry_clear {
 };
 
 struct render_entry_bitmap {
-    render_entity_basis EntityBasis;
     loaded_bitmap *Bitmap;
-    v2 Size;
+
     v4 Color;
+    v2 P;
+    v2 Size;
 };
 
 struct render_entry_rectangle {
-    render_entity_basis EntityBasis;
     v4 Color;
+    v2 P;
     v2 Dim;
 };
 
@@ -89,31 +85,35 @@ struct render_entry_coordinate_system {
     loaded_bitmap *Texture;
     loaded_bitmap *NormalMap;
 
+    real32 PixelsToMeters; // TODO: Need to store this for lighting!
+
     environment_map *Top;
     environment_map *Middle;
     environment_map *Bottom;
 };
 // }
 
-struct render_group_camera {
+struct render_transform {
     // NOTE: Camera parameters
     real32 FocalLength;
     real32 DistanceAboveTarget;
+
+    real32 MetersToPixels; // NOTE: This translate meters _on the monitor_ into pixels _on the monitor_
+    v2 ScreenCenter;
+
+    v3 OffsetP;
+    real32 Scale;
 };
 
 // TODO: This is dump, this should just be part of
 // the renderer pushbuffer - add correction of coordinates
 // in there and be done with it.
 struct render_group {
-    render_group_camera GameCamera;
-    render_group_camera RenderCamera;
-
-    real32 MetersToPixels; // NOTE: This translate meters _on the monitor_ into pixels _on the monitor_
-    v2 MonitorHalfDimInMeters;
-
     real32 GlobalAlpha;
 
-    render_basis *DefaultBasis;
+    v2 MonitorHalfDimInMeters;
+
+    render_transform Transform;
 
     uint32 MaxPushBufferSize;
     uint32 PushBufferSize;
