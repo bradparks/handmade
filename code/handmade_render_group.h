@@ -94,6 +94,8 @@ struct render_entry_coordinate_system {
 // }
 
 struct render_transform {
+    bool32 Orthographic;
+
     // NOTE: Camera parameters
     real32 FocalLength;
     real32 DistanceAboveTarget;
