@@ -486,6 +486,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
         real32 Inv255 = 1.0f / 255.0f;
         __m128 Inv255_4x = _mm_set1_ps(Inv255);
 
+        __m128 Half = _mm_set1_ps(0.5f);
         __m128 One = _mm_set1_ps(1.0f);
         __m128 Four_4x = _mm_set1_ps(4.0f);
         __m128 One255_4x = _mm_set1_ps(255.0f);
@@ -567,9 +568,10 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
                     U = _mm_min_ps(_mm_max_ps(U, Zero), One);
                     V = _mm_min_ps(_mm_max_ps(V, Zero), One);
 
-                    // TODO: Formalize texture boundaries!!!
-                    __m128 tX = _mm_mul_ps(U, WidthM2);
-                    __m128 tY = _mm_mul_ps(V, HeightM2);
+                    // NOTE: Bias texture coordinates to start on the boundary
+                    // between (0, 0) and (1, 1) pixels
+                    __m128 tX = _mm_add_ps(_mm_mul_ps(U, WidthM2), Half);
+                    __m128 tY = _mm_add_ps(_mm_mul_ps(V, HeightM2), Half);
 
                     __m128i FetchX_4x = _mm_cvttps_epi32(tX);
                     __m128i FetchY_4x = _mm_cvttps_epi32(tY);

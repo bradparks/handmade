@@ -336,11 +336,6 @@ struct platform_work_queue {
     platform_work_queue_entry Entries[256];
 };
 
-struct sdl_thread_info {
-    platform_work_queue *Queue;
-};
-
-
 internal void
 SDLAddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data) {
     int NewNextEntryToWrite = (Queue->NextEntryToWrite.value + 1 ) % ArrayCount(Queue->Entries);
@@ -387,31 +382,40 @@ SDLCompleteAllWork(platform_work_queue *Queue) {
 
 internal int
 ThreadProc(void *Data) {
-    sdl_thread_info *ThreadInfo = (sdl_thread_info *)Data;
+    platform_work_queue *Queue = (platform_work_queue *)Data;
 
     for (;;) {
-        if (SDLDoNextWorkQueueEntry(ThreadInfo->Queue)) {
-            SDL_SemWait(ThreadInfo->Queue->Sem);
+        if (SDLDoNextWorkQueueEntry(Queue)) {
+            SDL_SemWait(Queue->Sem);
         }
+    }
+}
+
+internal void
+SDLMakeQueue(platform_work_queue *Queue, uint32 ThreadCount) {
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount.value = 0;
+
+    Queue->NextEntryToWrite.value = 0;
+    Queue->NextEntryToRead.value = 0;
+
+    uint32 InitialCount = 0;
+    Queue->Sem = SDL_CreateSemaphore(InitialCount);
+
+    for (uint32 ThreadIndex = 0; ThreadIndex < ThreadCount; ++ThreadIndex) {
+        SDL_Thread *Thread = SDL_CreateThread(ThreadProc, 0, Queue);
     }
 }
 
 int main(int argc, char *argv[]) {
     sdl_state SDLState = {};
 
-    sdl_thread_info ThreadInfo[7];
+    platform_work_queue HighPriorityQueue = {};
+    SDLMakeQueue(&HighPriorityQueue, 6);
 
-    uint32 InitialCount = 0;
-    uint32 ThreadCount = ArrayCount(ThreadInfo);
-    platform_work_queue Queue = {};
-    Queue.Sem = SDL_CreateSemaphore(0);
+    platform_work_queue LowPriorityQueue = {};
+    SDLMakeQueue(&LowPriorityQueue, 2);
 
-    for (uint32 ThreadIndex = 0; ThreadIndex < ThreadCount; ++ThreadIndex) {
-        sdl_thread_info *Info = ThreadInfo + ThreadIndex;
-        Info->Queue = &Queue;
-
-        SDL_Thread *Thread = SDL_CreateThread(ThreadProc, 0, Info);
-    }
 
     GlobalPerfCountFrequency = SDL_GetPerformanceFrequency();
 
@@ -461,7 +465,8 @@ int main(int argc, char *argv[]) {
     game_memory GameMemory = {};
     GameMemory.PermanentStorageSize = Megabytes(64);
     GameMemory.TransientStorageSize = Gigabytes(1);
-    GameMemory.HighPriorityQueue = &Queue;
+    GameMemory.HighPriorityQueue = &HighPriorityQueue;
+    GameMemory.LowPriorityQueue = &LowPriorityQueue;
     GameMemory.PlatformAddEntry = SDLAddEntry;
     GameMemory.PlatformCompleteAllWork = SDLCompleteAllWork;
     GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
