@@ -111,6 +111,8 @@ struct render_transform {
 // the renderer pushbuffer - add correction of coordinates
 // in there and be done with it.
 struct render_group {
+    struct game_assets *Assets;
+
     real32 GlobalAlpha;
 
     v2 MonitorHalfDimInMeters;
@@ -120,6 +122,8 @@ struct render_group {
     uint32 MaxPushBufferSize;
     uint32 PushBufferSize;
     uint8 *PushBufferBase;
+
+    uint32 MissingResourceCount;
 };
 
 #endif

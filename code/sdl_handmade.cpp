@@ -473,7 +473,7 @@ int main(int argc, char *argv[]) {
     GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
     GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
-    SDLState.TotalSize = GameMemory.PermanentStorageSize + GameMemory.PermanentStorageSize;
+    SDLState.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
 
     SDLState.GameMemoryBlock = mmap(BaseAddress,
                                     (size_t) SDLState.TotalSize,

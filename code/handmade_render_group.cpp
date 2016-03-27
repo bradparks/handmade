@@ -1059,15 +1059,17 @@ TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
 }
 
 internal render_group *
-AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize) {
+AllocateRenderGroup(game_assets *Assets, memory_arena *Arena, uint32 MaxPushBufferSize) {
     render_group *Result = PushStruct(Arena, render_group);
-    Result->PushBufferBase = (uint8 *) PushSize(Arena, MaxPushBufferSize);
+
+    Result->Assets = Assets;
 
     if (MaxPushBufferSize == 0) {
         // TODO: Safe cast from memory_index to uint32
         MaxPushBufferSize = (uint32)GetArenaSizeRemaining(Arena);
     }
 
+    Result->PushBufferBase = (uint8 *) PushSize(Arena, MaxPushBufferSize);
     Result->MaxPushBufferSize = MaxPushBufferSize;
     Result->PushBufferSize = 0;
 
@@ -1076,6 +1078,8 @@ AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize) {
     // NOTE: Default transform
     Result->Transform.OffsetP = V3(0.0f, 0.0f, 0.0f);
     Result->Transform.Scale = 1.0;
+
+    Result->MissingResourceCount = 0;
 
     return Result;
 }
@@ -1197,6 +1201,17 @@ PushBitmap(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offset,
 }
 
 inline void
+PushBitmap(render_group *Group, game_asset_id ID, real32 Height, v3 Offset, v4 Color = V4(1, 1, 1, 1)) {
+    loaded_bitmap *Bitmap = GetBitmap(Group->Assets, ID);
+    if (Bitmap) {
+        PushBitmap(Group, Bitmap, Height, Offset, Color);
+    } else {
+        LoadAsset(Group->Assets, ID);
+        ++Group->MissingResourceCount;
+    }
+}
+
+inline void
 PushRect(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1)) {
     v3 P = Offset - V3(0.5f * Dim, 0);
     entity_basis_p_result Basis = GetRenderEntityBasisP(&Group->Transform, P);
@@ -1273,5 +1288,12 @@ GetCameraRectangleAtDistance(render_group *Group, real32 DistanceFromCamera) {
 inline rectangle2
 GetCameraRectangleAtTarget(render_group *Group) {
     rectangle2 Result = GetCameraRectangleAtDistance(Group, Group->Transform.DistanceAboveTarget);
+    return Result;
+}
+
+inline bool32
+AllResourcePresent(render_group *RenderGroup) {
+    bool32 Result = RenderGroup->MissingResourceCount == 0;
+
     return Result;
 }

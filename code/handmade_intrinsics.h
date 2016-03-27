@@ -7,10 +7,25 @@
 #include "math.h"
 
 #if COMPILER_MSVC
-#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier();
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 Expected, uint32 New) {
+    uint32 Result = InterlockedCompareExchange((long *)Value, New, Expected);
+    return Result;
+}
+#elif HANDMADE_SDL
+#include <SDL2/SDL.h>
+#define CompletePreviousWritesBeforeFutureWrites SDL_CompilerBarrier()
+inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 Expected, uint32 New) {
+    SDL_atomic_t Atomic;
+    Atomic.value = *Value;
+    if (SDL_AtomicCAS(&Atomic, Expected, New)) {
+        return Expected;
+    } else {
+        return Atomic.value;
+    }
+}
 #else
-// TODO: Need to define these on GCC/LLVM?
-#define CompletePreviousWritesBeforeFutureWrites
+// TODO: Need GCC/LLVM equiavalents!
 #endif
 
 inline int32

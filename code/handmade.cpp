@@ -464,6 +464,34 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(FillGroundChunkWork) {
     EndTaskWithMemory(Work->Task);
 }
 
+internal int32
+PickBest(int32 InfoCount, asset_bitmap_info *Infos, asset_tag *Tags, real32 *MatchVector, real32 *WeightVector) {
+    real32 BestDiff = Real32Maximum;
+    int32 BestIndex = 0;
+
+    for (int32 InfoIndex = 0; InfoIndex < InfoCount; ++InfoIndex) {
+        asset_bitmap_info *Info = Infos + InfoIndex;
+
+        real32 TotalWeightedDiff = 0.0f;
+        for (uint32 TagIndex = Info->FirstTagIndex;
+             TagIndex < Info->OnePastLastTagIndex;
+             ++TagIndex)
+        {
+            asset_tag *Tag = Tags + TagIndex;
+            real32 Difference = MatchVector[Tag->ID] - Tag->Value;
+            real32 Weighted = WeightVector[Tag->ID] * AbsoluteValue(Difference);
+            TotalWeightedDiff += Weighted;
+        }
+
+        if (BestDiff > TotalWeightedDiff) {
+            BestDiff = TotalWeightedDiff;
+            BestIndex = InfoIndex;
+        }
+    }
+
+    return BestIndex;
+}
+
 internal void
 FillGroundChunk(transient_state *TranState, game_state *GameState,
                 ground_buffer *GroundBuffer, world_position *ChunkP)
@@ -482,7 +510,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
         v2 HalfDim = 0.5f * V2(Width, Height);
 
         // TODO: Decide what a pushbuffer size is!
-        render_group *RenderGroup = AllocateRenderGroup(&Task->Arena, 0);
+        render_group *RenderGroup = AllocateRenderGroup(&TranState->Assets, &Task->Arena, 0);
         Orthographic(RenderGroup, Buffer->Width, Buffer->Height, (Buffer->Width - 2)/ Width);
 
         Clear(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f));
@@ -513,9 +541,9 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
                 for (uint32 GrassIndex = 0; GrassIndex < 100; ++GrassIndex) {
                     loaded_bitmap *Stamp;
                     if (RandomChoice(&Series, 2)) {
-                        Stamp = GameState->Grass + RandomChoice(&Series, ArrayCount(GameState->Grass));
+                        Stamp = TranState->Assets.Grass + RandomChoice(&Series, ArrayCount(TranState->Assets.Grass));
                     } else {
-                        Stamp = GameState->Stone + RandomChoice(&Series, ArrayCount(GameState->Stone));
+                        Stamp = TranState->Assets.Stone + RandomChoice(&Series, ArrayCount(TranState->Assets.Stone));
                     }
 
                     v2 P = Center + Hadamard(HalfDim, V2(RandomBilateral(&Series), RandomBilateral(&Series)));
@@ -537,7 +565,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
                 v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
 
                 for (uint32 GrassIndex = 0; GrassIndex < 50; ++GrassIndex) {
-                    loaded_bitmap *Stamp = GameState->Tuft + RandomChoice(&Series, ArrayCount(GameState->Tuft));
+                    loaded_bitmap *Stamp = TranState->Assets.Tuft + RandomChoice(&Series, ArrayCount(TranState->Assets.Tuft));
 
                     v2 P = Center + Hadamard(HalfDim, V2(RandomBilateral(&Series), RandomBilateral(&Series)));
                     PushBitmap(RenderGroup, Stamp, 0.1f, V3(P, 0.0f));
@@ -545,11 +573,13 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
             }
         }
 
-        Work->RenderGroup = RenderGroup;
-        Work->Buffer = Buffer;
-        Work->Task = Task;
+        if (AllResourcePresent(RenderGroup)) {
+            Work->RenderGroup = RenderGroup;
+            Work->Buffer = Buffer;
+            Work->Task = Task;
 
-        PlatformAddEntry(TranState->LowPriorityQueue, FillGroundChunkWork, Work);
+            PlatformAddEntry(TranState->LowPriorityQueue, FillGroundChunkWork, Work);
+        }
     }
 }
 
@@ -724,6 +754,98 @@ SetTopDownAlign(hero_bitmaps *Bitmap, v2 Align) {
     Bitmap->Torso.AlignPercentage = Align;
 }
 
+struct load_asset_work {
+    game_assets *Assets;
+    const char *FileName;
+    game_asset_id ID;
+    loaded_bitmap *Bitmap;
+    task_with_memory *Task;
+
+    bool32 HasAlignment;
+    int32 AlignX;
+    int32 TopDownAlignY;
+
+    asset_state FinalState;
+};
+
+internal PLATFORM_WORK_QUEUE_CALLBACK(LoadAssetWork) {
+    load_asset_work *Work = (load_asset_work *)Data;
+    // TODO: Get rid of this thread thing when i load through a queue instead of the debug call
+    thread_context *Thread = 0;
+
+    if (Work->HasAlignment) {
+        *Work->Bitmap = DEBUGLoadBMP(Thread, Work->Assets->ReadEntireFile, Work->FileName, Work->AlignX, Work->TopDownAlignY);
+    } else {
+        *Work->Bitmap = DEBUGLoadBMP(Thread, Work->Assets->ReadEntireFile, Work->FileName);
+    }
+
+    CompletePreviousWritesBeforeFutureWrites;
+
+    Work->Assets->Bitmaps[Work->ID].Bitmap = Work->Bitmap;
+    Work->Assets->Bitmaps[Work->ID].State = Work->FinalState;
+
+    EndTaskWithMemory(Work->Task);
+}
+
+internal void
+LoadAsset(game_assets *Assets, game_asset_id ID) {
+    if (AtomicCompareExchangeUInt32((uint32 *)&Assets->Bitmaps[ID].State, AssetState_Unloaded, AssetState_Queued) ==
+        AssetState_Unloaded)
+    {
+        task_with_memory *Task = BeginTaskWithMemory(Assets->TranState);
+        if (Task) {
+            debug_platform_read_entire_file *ReadEntireFile = Assets->ReadEntireFile;
+
+            load_asset_work *Work = PushStruct(&Task->Arena, load_asset_work);
+
+            Work->Assets = Assets;
+            Work->ID = ID;
+            Work->FileName = "";
+            Work->Task = Task;
+            Work->Bitmap = PushStruct(&Assets->Arena, loaded_bitmap);
+            Work->HasAlignment = false;
+            Work->FinalState = AssetState_Loaded;
+
+            // TODO: Get rid of this thread thing when i load through a queue instead of the debug call
+            thread_context *Thread = 0;
+            switch(ID) {
+                case GAI_Backdrop: {
+                    Work->FileName = "test/test_background.bmp";
+                } break;
+
+                case GAI_Shadow: {
+                    Work->FileName = "test/test_hero_shadow.bmp";
+                    Work->HasAlignment = true;
+                    Work->AlignX = 72;
+                    Work->TopDownAlignY = 182;
+                } break;
+
+                case GAI_Tree: {
+                    Work->FileName = "test2/tree00.bmp";
+                    Work->HasAlignment = true;
+                    Work->AlignX = 40;
+                    Work->TopDownAlignY = 80;
+                } break;
+
+                case GAI_Stairwell: {
+                    Work->FileName = "test2/rock02.bmp";
+                } break;
+
+                case GAI_Sword: {
+                    Work->FileName = "test2/rock03.bmp";
+                    Work->HasAlignment = true;
+                    Work->AlignX = 29;
+                    Work->TopDownAlignY = 10;
+                } break;
+
+                default: break;
+            }
+
+            PlatformAddEntry(Assets->TranState->LowPriorityQueue, LoadAssetWork, Work);
+        }
+    }
+}
+
 #if HANDMADE_INTERNAL
 game_memory *DebugGlobalMemory;
 #endif
@@ -790,65 +912,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                                                                        TilesPerWidth * TileSideInMeters,
                                                                        TilesPerHeight * TileSideInMeters,
                                                                        0.9f * TileDepthInMeters);
-
-        GameState->Grass[0] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/grass00.bmp");
-        GameState->Grass[1] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/grass01.bmp");
-
-        GameState->Tuft[0] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft00.bmp");
-        GameState->Tuft[1] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft01.bmp");
-        GameState->Tuft[2] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft02.bmp");
-
-        GameState->Stone[0] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/ground00.bmp");
-        GameState->Stone[1] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/ground01.bmp");
-        GameState->Stone[2] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/ground02.bmp");
-        GameState->Stone[3] =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/ground03.bmp");
-
-        GameState->Backdrop =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_background.bmp");
-        GameState->Shadow =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_shadow.bmp", 72, 182);
-        GameState->Tree =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tree00.bmp", 40, 80);
-
-        GameState->Stairwell =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/rock02.bmp");
-        GameState->Sword =
-            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/rock03.bmp", 29, 10);
-
-        hero_bitmaps *Bitmap;
-
-        Bitmap = GameState->HeroBitmaps;
-        Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_head.bmp");
-        Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_cape.bmp");
-        Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_torso.bmp");
-        SetTopDownAlign(Bitmap, V2(72, 182));
-        Bitmap++;
-
-        Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_head.bmp");
-        Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_cape.bmp");
-        Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_torso.bmp");
-        SetTopDownAlign(Bitmap, V2(72, 182));
-        Bitmap++;
-
-        Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_head.bmp");
-        Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_cape.bmp");
-        Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_torso.bmp");
-        SetTopDownAlign(Bitmap, V2(72, 182));
-        Bitmap++;
-
-        Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_head.bmp");
-        Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_cape.bmp");
-        Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_torso.bmp");
-        SetTopDownAlign(Bitmap, V2(72, 182));
 
         random_series Series = RandomSeed(1234);
 
@@ -984,6 +1047,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         InitializeArena(&TranState->TranArena, Memory->TransientStorageSize - sizeof(transient_state),
                         (uint8 *) Memory->TransientStorage + sizeof(transient_state));
 
+        SubArena(&TranState->Assets.Arena, &TranState->TranArena, Megabytes(64));
+        TranState->Assets.ReadEntireFile = Memory->DEBUGPlatformReadEntireFile;
+        TranState->Assets.TranState = TranState;
+
         for (uint32 TaskIndex = 0; TaskIndex < ArrayCount(TranState->Tasks); ++TaskIndex) {
             task_with_memory *Task = TranState->Tasks + TaskIndex;
 
@@ -1030,6 +1097,55 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                 Height >>= 1;
             }
         }
+
+        TranState->Assets.Grass[0] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/grass00.bmp");
+        TranState->Assets.Grass[1] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/grass01.bmp");
+
+        TranState->Assets.Tuft[0] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft00.bmp");
+        TranState->Assets.Tuft[1] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft01.bmp");
+        TranState->Assets.Tuft[2] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft02.bmp");
+
+        TranState->Assets.Stone[0] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/ground00.bmp");
+        TranState->Assets.Stone[1] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/ground01.bmp");
+        TranState->Assets.Stone[2] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/ground02.bmp");
+        TranState->Assets.Stone[3] =
+            DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/ground03.bmp");
+
+        hero_bitmaps *Bitmap;
+
+        Bitmap = TranState->Assets.HeroBitmaps;
+        Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_head.bmp");
+        Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_cape.bmp");
+        Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_torso.bmp");
+        SetTopDownAlign(Bitmap, V2(72, 182));
+        Bitmap++;
+
+        Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_head.bmp");
+        Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_cape.bmp");
+        Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_torso.bmp");
+        SetTopDownAlign(Bitmap, V2(72, 182));
+        Bitmap++;
+
+        Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_head.bmp");
+        Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_cape.bmp");
+        Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_torso.bmp");
+        SetTopDownAlign(Bitmap, V2(72, 182));
+        Bitmap++;
+
+        Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_head.bmp");
+        Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_cape.bmp");
+        Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_torso.bmp");
+        SetTopDownAlign(Bitmap, V2(72, 182));
+
+        //LoadAssets(TranState, &TranState->Assets, Thread, Memory->DEBUGPlatformReadEntireFile);
 
         TranState->IsInitialized = true;
     }
@@ -1123,7 +1239,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 #endif
 
     // TODO: Decide what a pushbuffer size is!
-    render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
+    render_group *RenderGroup = AllocateRenderGroup(&TranState->Assets, &TranState->TranArena, Megabytes(4));
     real32 WidthOfMonitor = 0.635; // NOTE: Horizontal measurement of monitor in meters
     real32 MetersToPixels = (real32)DrawBuffer->Width * WidthOfMonitor;
     real32 FocalLength = 0.6f;
@@ -1259,7 +1375,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
             //
             // NOTE: Pre-physics entity work
             //
-            hero_bitmaps *HeroBitmaps = &GameState->HeroBitmaps[Entity->FacingDirection];
+            hero_bitmaps *HeroBitmaps = &TranState->Assets.HeroBitmaps[Entity->FacingDirection];
             switch (Entity->Type) {
                 case EntityType_Hero: {
                     // TODO: Now that we have some real usage examples, let's solidify
@@ -1348,7 +1464,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                 case EntityType_Hero: {
                     // TODO: Z!!!
                     real32 HeroSizeC = 2.5f;
-                    PushBitmap(RenderGroup, &GameState->Shadow, HeroSizeC * 1.0f, V3(0, 0, 0), V4(1, 1, 1, ShadowAlpha));
+                    PushBitmap(RenderGroup, GAI_Shadow, HeroSizeC * 1.0f, V3(0, 0, 0), V4(1, 1, 1, ShadowAlpha));
                     PushBitmap(RenderGroup, &HeroBitmaps->Torso, HeroSizeC * 1.2f, V3(0, 0, 0));
                     PushBitmap(RenderGroup, &HeroBitmaps->Cape, HeroSizeC * 1.2f, V3(0, 0, 0));
                     PushBitmap(RenderGroup, &HeroBitmaps->Head, HeroSizeC * 1.2f, V3(0, 0, 0));
@@ -1357,7 +1473,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                 } break;
 
                 case EntityType_Wall: {
-                    PushBitmap(RenderGroup, &GameState->Tree, 2.5f, V3(0, 0, 0));
+                    PushBitmap(RenderGroup, GAI_Tree, 2.5f, V3(0, 0, 0));
                 } break;
 
                 case EntityType_Stairwell: {
@@ -1366,8 +1482,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                 } break;
 
                 case EntityType_Sword: {
-                    PushBitmap(RenderGroup, &GameState->Shadow, 0.5f, V3(0, 0, 0), V4(1, 1, 1, ShadowAlpha));
-                    PushBitmap(RenderGroup, &GameState->Sword, 0.5f, V3(0, 0, 0));
+                    PushBitmap(RenderGroup, GAI_Shadow, 0.5f, V3(0, 0, 0), V4(1, 1, 1, ShadowAlpha));
+                    PushBitmap(RenderGroup, GAI_Sword, 0.5f, V3(0, 0, 0));
                  } break;
 
                 case EntityType_Familiar: {
@@ -1376,12 +1492,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                         Entity->tBob -= 2.0f * PI32;
                     }
                     real32 BobSin = Sin(2.0f * Entity->tBob);
-                    PushBitmap(RenderGroup, &GameState->Shadow, 2.5f, V3(0, 0, 0), V4(1, 1, 1, (0.5f * ShadowAlpha) + 0.2f * BobSin));
+                    PushBitmap(RenderGroup, GAI_Shadow, 2.5f, V3(0, 0, 0), V4(1, 1, 1, (0.5f * ShadowAlpha) + 0.2f * BobSin));
                     PushBitmap(RenderGroup, &HeroBitmaps->Head, 2.5f, V3(0, 0, 0.2f * BobSin));
                 } break;
 
                 case EntityType_Monstar: {
-                    PushBitmap(RenderGroup, &GameState->Shadow, 4.5f, V3(0, 0, 0), V4(1, 1, 1, ShadowAlpha));
+                    PushBitmap(RenderGroup, GAI_Shadow, 4.5f, V3(0, 0, 0), V4(1, 1, 1, ShadowAlpha));
                     PushBitmap(RenderGroup, &HeroBitmaps->Torso, 4.5f, V3(0, 0, 0));
 
                     DrawHitPoints(Entity, RenderGroup);
