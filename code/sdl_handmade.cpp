@@ -89,7 +89,7 @@ DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile) {
                 {
                     Result.ContentsSize = FileSize32;
                 } else {
-                    DEBUGPlatformFreeFileMemory(Thread, Result.Contents);
+                    DEBUGPlatformFreeFileMemory(Result.Contents);
                     Result.Contents = 0;
                 }
             } else {
@@ -543,7 +543,6 @@ int main(int argc, char *argv[]) {
 
             // TODO: Game controller support here
 
-            thread_context Thread = {};
             game_offscreen_buffer Buffer = {};
             Buffer.Memory = GlobalBackBuffer.Memory;
             Buffer.Width = GlobalBackBuffer.Width;
@@ -551,7 +550,7 @@ int main(int argc, char *argv[]) {
             Buffer.Pitch = GlobalBackBuffer.Pitch;
 
             if (Game.UpdateAndRender) {
-                Game.UpdateAndRender(&Thread, &GameMemory, NewInput, &Buffer);
+                Game.UpdateAndRender(&GameMemory, NewInput, &Buffer);
                 HandleDebugCycleCounters(&GameMemory);
             }
 

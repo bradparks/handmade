@@ -563,7 +563,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
                 // TODO: Later, re-check if this helps
                 //if (_mm_movemask_epi8(WriteMask))
                 {
-                    __m128i OriginalDest = _mm_loadu_si128((__m128i *)Pixel);
+                    __m128i OriginalDest = _mm_load_si128((__m128i *)Pixel);
 
                     U = _mm_min_ps(_mm_max_ps(U, Zero), One);
                     V = _mm_min_ps(_mm_max_ps(V, Zero), One);
@@ -726,7 +726,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Co
                     __m128i MaskedOut = _mm_or_si128(_mm_and_si128(WriteMask, Out),
                                                      _mm_andnot_si128(WriteMask, OriginalDest));
 
-                    _mm_storeu_si128((__m128i *)Pixel, MaskedOut);
+                    _mm_store_si128((__m128i *)Pixel, MaskedOut);
                 }
 
                 PixelPx = _mm_add_ps(PixelPx, Four_4x);
@@ -1201,12 +1201,12 @@ PushBitmap(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offset,
 }
 
 inline void
-PushBitmap(render_group *Group, game_asset_id ID, real32 Height, v3 Offset, v4 Color = V4(1, 1, 1, 1)) {
+PushBitmap(render_group *Group, bitmap_id ID, real32 Height, v3 Offset, v4 Color = V4(1, 1, 1, 1)) {
     loaded_bitmap *Bitmap = GetBitmap(Group->Assets, ID);
     if (Bitmap) {
         PushBitmap(Group, Bitmap, Height, Offset, Color);
     } else {
-        LoadAsset(Group->Assets, ID);
+        LoadBitmap(Group->Assets, ID);
         ++Group->MissingResourceCount;
     }
 }
