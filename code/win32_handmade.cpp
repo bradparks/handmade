@@ -126,7 +126,7 @@ DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile) {
                     Result.ContentsSize = FileSize32;
                 } else {
                     // TODO: Logging
-                    DEBUGPlatformFreeFileMemory(Thread, Result.Contents);
+                    DEBUGPlatformFreeFileMemory(Result.Contents);
                     Result.Contents = 0;
                 }
             } else {
@@ -1063,8 +1063,8 @@ WinMain(HINSTANCE Instance,
        1080 -> 2048 = 2048 - 1080 -> 968 pixels
        1024 + 128 = 1152
      */
-    //Win32ResizeDIBSection(&GlobalBackBuffer, 960, 540);
-    Win32ResizeDIBSection(&GlobalBackBuffer, 1920, 1080);
+    Win32ResizeDIBSection(&GlobalBackBuffer, 960, 540);
+    //Win32ResizeDIBSection(&GlobalBackBuffer, 1920, 1080);
 
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -1363,8 +1363,6 @@ WinMain(HINSTANCE Instance,
                             }
                         }
 
-                        thread_context Thread = {};
-
                         game_offscreen_buffer Buffer = {};
                         Buffer.Memory = GlobalBackBuffer.Memory;
                         Buffer.Width = GlobalBackBuffer.Width;
@@ -1379,7 +1377,7 @@ WinMain(HINSTANCE Instance,
                             Win32PlayBackInput(&Win32State, NewInput);
                         }
                         if (Game.UpdateAndRender) {
-                            Game.UpdateAndRender(&Thread, &GameMemory, NewInput, &Buffer);
+                            Game.UpdateAndRender(&GameMemory, NewInput, &Buffer);
                             HandleDebugCycleCounters(&GameMemory);
                         }
 
@@ -1460,7 +1458,7 @@ WinMain(HINSTANCE Instance,
                             SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
                             SoundBuffer.Samples = Samples;
                             if (Game.GetSoundSamples) {
-                                Game.GetSoundSamples(&Thread, &GameMemory, &SoundBuffer);
+                                Game.GetSoundSamples(&GameMemory, &SoundBuffer);
                             }
 
 #if HANDMADE_INTERNAL
