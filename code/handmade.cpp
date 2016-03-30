@@ -392,7 +392,9 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
 
         Clear(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f));
 
-        GroundBuffer->P = *ChunkP;
+        Work->RenderGroup = RenderGroup;
+        Work->Buffer = Buffer;
+        Work->Task = Task;
 
         for (int32 ChunkOffsetY = -1; ChunkOffsetY <= 1; ++ChunkOffsetY) {
             for (int32 ChunkOffsetX = -1; ChunkOffsetX <= 1; ++ChunkOffsetX) {
@@ -416,13 +418,9 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
                 v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
 
                 for (uint32 GrassIndex = 0; GrassIndex < 100; ++GrassIndex) {
-                    loaded_bitmap *Stamp;
-                    if (RandomChoice(&Series, 2)) {
-                        Stamp = TranState->Assets->Grass + RandomChoice(&Series, ArrayCount(TranState->Assets->Grass));
-                    } else {
-                        Stamp = TranState->Assets->Stone + RandomChoice(&Series, ArrayCount(TranState->Assets->Stone));
-                    }
-
+                    bitmap_id Stamp = RandomAssetFrom(TranState->Assets,
+                                                      RandomChoice(&Series, 2) ? Asset_Grass : Asset_Stone,
+                                                      &Series);
                     v2 P = Center + Hadamard(HalfDim, V2(RandomBilateral(&Series), RandomBilateral(&Series)));
                     PushBitmap(RenderGroup, Stamp, 2.0f, V3(P, 0.0f), Color);
                 }
@@ -442,8 +440,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
                 v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
 
                 for (uint32 GrassIndex = 0; GrassIndex < 50; ++GrassIndex) {
-                    loaded_bitmap *Stamp = TranState->Assets->Tuft + RandomChoice(&Series, ArrayCount(TranState->Assets->Tuft));
-
+                    bitmap_id Stamp = RandomAssetFrom(TranState->Assets, Asset_Tuft, &Series);
                     v2 P = Center + Hadamard(HalfDim, V2(RandomBilateral(&Series), RandomBilateral(&Series)));
                     PushBitmap(RenderGroup, Stamp, 0.1f, V3(P, 0.0f));
                 }
@@ -451,11 +448,11 @@ FillGroundChunk(transient_state *TranState, game_state *GameState,
         }
 
         if (AllResourcePresent(RenderGroup)) {
-            Work->RenderGroup = RenderGroup;
-            Work->Buffer = Buffer;
-            Work->Task = Task;
+            GroundBuffer->P = *ChunkP;
 
             PlatformAddEntry(TranState->LowPriorityQueue, FillGroundChunkWork, Work);
+        } else {
+            EndTaskWithMemory(Work->Task);
         }
     }
 }

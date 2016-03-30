@@ -31,12 +31,13 @@ enum asset_tag_id {
 enum asset_type_id {
     Asset_None,
 
-    Asset_Backdrop,
     Asset_Shadow,
     Asset_Tree,
     Asset_Sword,
-    Asset_Stairwell,
-    Asset_Rock,
+
+    Asset_Grass,
+    Asset_Tuft,
+    Asset_Stone,
 
     Asset_Count,
 };
@@ -58,10 +59,8 @@ struct asset_type {
 };
 
 struct asset_bitmap_info {
+    char *FileName;
     v2 AlignPercentage;
-    real32 WidthOverHeight;
-    int32 Width;
-    int32 Height;
 };
 
 struct asset_group {
@@ -72,10 +71,10 @@ struct asset_group {
 struct game_assets {
     // TODO: Not thrilled about this back-pointer
     struct transient_state *TranState;
-
     memory_arena Arena;
 
     uint32 BitmapCount;
+    asset_bitmap_info *BitmapInfos;
     asset_slot *Bitmaps;
 
     uint32 SoundCount;
@@ -89,13 +88,13 @@ struct game_assets {
 
     asset_type AssetTypes[Asset_Count];
 
-    // NOTE: Array'd assets
-    loaded_bitmap Grass[2];
-    loaded_bitmap Stone[4];
-    loaded_bitmap Tuft[3];
-
     // NOTE: Structured assets
     hero_bitmaps HeroBitmaps[4];
+
+    // TODO: These should go away once we actually load a asset pack file
+    uint32 DEBUGUsedBitmapCount;
+    uint32 DEBUGUsedAssetCount;
+    asset_type *DEBUGAssetType;
 };
 
 struct bitmap_id {
