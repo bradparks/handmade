@@ -629,20 +629,12 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
         Entity->DistanceLimit = DistanceRemaining;
     }
 
-    // TODO: Change to using the acceleration vector.
     if (Entity->dP.x == 0.0f && Entity->dP.y == 0.0f) {
         // NOTE: Leave FacingDirection whatever it was
-    } else if (AbsoluteValue(Entity->dP.x) > AbsoluteValue(Entity->dP.y)) {
-        if (Entity->dP.x > 0) {
-            Entity->FacingDirection = 0;
-        } else {
-            Entity->FacingDirection = 2;
-        }
     } else {
-        if (Entity->dP.y > 0) {
-            Entity->FacingDirection = 1;
-        } else {
-            Entity->FacingDirection = 3;
+        Entity->FacingDirection = Atan2(Entity->dP.y, Entity->dP.x);
+        if (Entity->FacingDirection < 0.0f) {
+            Entity->FacingDirection += Tau32;
         }
     }
 }

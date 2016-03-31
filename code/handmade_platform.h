@@ -81,7 +81,9 @@ typedef double real64;
 #define internal static
 #define global_variable static
 #define local_persist static
-#define PI32 3.14159265359f
+
+#define Pi32 3.14159265359f
+#define Tau32 6.2831853071795864692f
 
 #if HANDMADE_SLOW
 #define Assert(Expression) assert(Expression)
