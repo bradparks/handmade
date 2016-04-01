@@ -4,7 +4,14 @@
 /*
  * TODO:
  *
+ * - Audio
+ *   - Sound effect triggers
+ *   - Ambient sounds
+ *   - Music
+ *
  * - Asset streaming
+ *   - File format
+ *   - Memory management
  *
  * - Rendering
  *   - Straighten out all coordinate systems!
@@ -22,11 +29,6 @@
  *   - (A LITTLE GUI, but only a little!) Switches / sliders / etc.
  *   - Draw tile chunks so we can verify things are aligned / in the chunks we wangt them to be in / etc.
  *   - Thread visualization
- *
- * - Audio
- *   - Sound effect triggers
- *   - Ambient sounds
- *   - Music
  *
  * ARCHITECTURE EXPLORATION
  * - Z!
