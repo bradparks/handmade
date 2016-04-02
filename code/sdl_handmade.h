@@ -23,22 +23,19 @@ struct sdl_game_code {
     bool32 IsValid;
 };
 
+struct sdl_sound_output {
+    int SamplesPerSecond;
+    int BytesPerSample;
+    uint32 BufferSize;
+
+    // TODO: Should running sample index be in tyeps as well
+    // TODO: Math gets simpler if we add a "bytes per second" field?
+};
 
 #if 0
 struct sdl_window_dimension {
     int Width;
     int Height;
-};
-
-struct sdl_sound_output {
-    int SamplesPerSecond;
-    uint32 RunningSampleIndex;
-    int BytesPerSample;
-    DWORD SecondaryBufferSize;
-    DWORD SafetyBytes;
-
-    // TODO: Should running sample index be in tyeps as well
-    // TODO: Math gets simpler if we add a "bytes per second" field?
 };
 
 struct sdl_debug_time_marker {

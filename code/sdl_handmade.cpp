@@ -222,6 +222,24 @@ SDLUnloadGameCode(sdl_game_code *GameCode) {
     GameCode->GetSoundSamples = 0;
 }
 
+internal SDL_AudioDeviceID
+SDLInitSound(int32 SamplesPerSecond) {
+    SDL_AudioSpec spec = {};
+    spec.freq = SamplesPerSecond;
+    spec.format = AUDIO_S16;
+    spec.channels = 2;
+    spec.samples = 4096;
+
+    SDL_AudioDeviceID Result = SDL_OpenAudioDevice(NULL, 0, &spec, 0, 0);
+    if (Result != 0) {
+        SDL_PauseAudioDevice(Result, 0);
+    } else {
+        printf("Failed to open SDL audio device: %s\n", SDL_GetError());
+    }
+
+    return Result;
+}
+
 internal void
 SDLResizeDIBSection(SDL_Window *Window, sdl_offscreen_buffer *Buffer,
                     int Width, int Height)
@@ -433,7 +451,7 @@ int main(int argc, char *argv[]) {
     SDLBuildEXEPathFileName(&SDLState, "lock.tmp",
                             sizeof(GameCodeLockFullpath), GameCodeLockFullpath);
 
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         printf("Failed to initialize SDL: %s\n", SDL_GetError());
         return -1;
     }
@@ -451,8 +469,19 @@ int main(int argc, char *argv[]) {
     SDLResizeDIBSection(Window, &GlobalBackBuffer, 960, 540);
 
     // TODO: Set GameUpdateHz by monitor refresh HZ
-    real32 GameUpdateHz = 60.0f;
+    real32 GameUpdateHz = 30.0f;
     real32 TargetSecondsPerFrame = 1.0f / GameUpdateHz;
+
+    sdl_sound_output SoundOutput = {};
+    SoundOutput.SamplesPerSecond = 48000;
+    SoundOutput.BytesPerSample = sizeof(int16) * 2;
+    SoundOutput.BufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+
+    SDL_AudioDeviceID Audio = SDLInitSound(SoundOutput.SamplesPerSecond);
+
+    int16 *Samples = (int16 *)mmap(0, (size_t)SoundOutput.BufferSize,
+                                   PROT_READ | PROT_WRITE,
+                                   MAP_PRIVATE | MAP_ANON, -1, 0);
 
     GlobalRunning = true;
 
@@ -555,6 +584,14 @@ int main(int argc, char *argv[]) {
             }
 
             // TODO: Game audio support here
+            game_sound_output_buffer SoundBuffer = {};
+            SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
+            SoundBuffer.SampleCount = SoundOutput.SamplesPerSecond * TargetSecondsPerFrame;
+            SoundBuffer.Samples = Samples;
+            if (Game.GetSoundSamples) {
+                Game.GetSoundSamples(&GameMemory, &SoundBuffer);
+                SDL_QueueAudio(Audio, SoundBuffer.Samples, SoundBuffer.SampleCount * SoundOutput.BytesPerSample);
+            }
 
             SDLDisplayBufferInWindow(&GlobalBackBuffer);
 
