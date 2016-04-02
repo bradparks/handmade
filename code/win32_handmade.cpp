@@ -1101,7 +1101,7 @@ WinMain(HINSTANCE Instance,
             if (Win32RefreshRate > 1) {
                 MonitorRefreshHz = Win32RefreshRate;
             }
-            real32 GameUpdateHz = (real32)MonitorRefreshHz;
+            real32 GameUpdateHz = (real32)(MonitorRefreshHz / 2.0f);
             real32 TargetSecondsPerFrame = 1.0f / GameUpdateHz;
 
             SoundOutput.SamplesPerSecond = 48000;

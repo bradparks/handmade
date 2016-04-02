@@ -21,6 +21,39 @@ struct bitmap_header {
     uint32 GreenMask;
     uint32 BlueMask;
 };
+
+struct WAVE_header {
+    uint32 RIFFID;
+    uint32 Size;
+    uint32 WAVEID;
+};
+
+#define RIFF_CODE(a, b, c, d) (((uint32)(a) << 0) | ((uint32)(b) << 8) | ((uint32)(c) << 16) | ((uint32)(d) << 24))
+enum {
+    WAVE_ChunkID_fmt = RIFF_CODE('f', 'm', 't', ' '),
+    WAVE_ChunkID_data = RIFF_CODE('d', 'a', 't', 'a'),
+    WAVE_ChunkID_RIFF = RIFF_CODE('R', 'I', 'F', 'F'),
+    WAVE_ChunkID_WAVE = RIFF_CODE('W', 'A', 'V', 'E'),
+};
+
+struct WAVE_chunk {
+    uint32 ID;
+    uint32 Size;
+};
+
+struct WAVE_fmt {
+    uint16 wFormatTag;
+    uint16 nChannels;
+    uint32 nSamplesPerSec;
+    uint32 nAvgBytesPerSec;
+    uint16 nBlockAlign;
+    uint16 wBitsPerSample;
+    uint16 cbSize;
+    uint16 wValidBitsPerSample;
+    uint32 dwChannelMask;
+    uint8 SubFormat[16];
+};
+
 #pragma pack(pop)
 
 inline v2
@@ -159,36 +192,59 @@ LoadBitmap(game_assets *Assets, bitmap_id ID) {
     }
 }
 
-struct WAVE_header {
-    uint32 RIFFID;
-    uint32 Size;
-    uint32 WAVEID;
+struct riff_iterator {
+    uint8 *At;
+    uint8 *Stop;
 };
 
-#define RIFF_CODE(a, b, c, d) (((uint32)(a) << 0) | ((uint32)(b) << 8) | ((uint32)(c) << 16) | ((uint32)(d) << 24))
-enum {
-    WAVE_ChunkID_fmt = RIFF_CODE('f', 'm', 't', ' '),
-    WAVE_ChunkID_RIFF = RIFF_CODE('R', 'I', 'F', 'F'),
-    WAVE_ChunkID_WAVE = RIFF_CODE('W', 'A', 'V', 'E'),
-};
+inline riff_iterator
+ParseChunkAt(void *At, void *Stop) {
+    riff_iterator Iter;
 
-struct WAVE_chunk {
-    uint32 ID;
-    uint32 Size;
-};
+    Iter.At = (uint8 *)At;
+    Iter.Stop = (uint8 *)Stop;
 
-struct WAVE_fmt {
-    uint16 wFormatTag;
-    uint16 nChannels;
-    uint32 nSamplesPerSec;
-    uint32 nAvgBytesPerSec;
-    uint32 nBlockAlign;
-    uint16 wBytesPerSample;
-    uint16 cbSize;
-    uint16 wValidBitsPerSample;
-    uint32 dwChannelMask;
-    uint8 SubFormat[16];
-};
+    return Iter;
+}
+
+inline riff_iterator
+NextChunk(riff_iterator Iter) {
+    WAVE_chunk *Chunk = (WAVE_chunk *)Iter.At;
+    uint32 Size = (Chunk->Size + 1) & ~1;
+    Iter.At += sizeof(WAVE_chunk) + Size;
+
+    return Iter;
+}
+
+inline bool32
+IsValid(riff_iterator Iter) {
+    bool32 Result = Iter.At < Iter.Stop;
+
+    return Result;
+}
+
+inline void *
+GetChunkData(riff_iterator Iter) {
+    void *Result = Iter.At + sizeof(WAVE_chunk);
+
+    return Result;
+}
+
+inline uint32
+GetType(riff_iterator Iter) {
+    WAVE_chunk *Chunk = (WAVE_chunk *)Iter.At;
+    uint32 Result = Chunk->ID;
+
+    return Result;
+}
+
+inline uint32
+GetChunkDataSize(riff_iterator Iter) {
+    WAVE_chunk *Chunk = (WAVE_chunk *)Iter.At;
+    uint32 Result = Chunk->Size;
+
+    return Result;
+}
 
 internal loaded_sound
 DEBUGLoadWAV(char *FileName) {
@@ -197,9 +253,55 @@ DEBUGLoadWAV(char *FileName) {
     debug_read_file_result ReadResult = DEBUGPlatformReadEntireFile(FileName);
     if (ReadResult.ContentsSize != 0) {
         WAVE_header *Header = (WAVE_header *)ReadResult.Contents;
-
-        Assert(Header->RIFFID == WAVE_ChunkID_RIFF)
+        Assert(Header->RIFFID == WAVE_ChunkID_RIFF);
         Assert(Header->WAVEID == WAVE_ChunkID_WAVE);
+
+        uint32 ChannelCount = 0;
+        int16 *SampleData = 0;
+        uint32 SampleDataSize = 0;
+        for (riff_iterator Iter = ParseChunkAt(Header + 1, (uint8 *)(Header + 1) + Header->Size - 4);
+             IsValid(Iter);
+             Iter = NextChunk(Iter))
+        {
+            switch (GetType(Iter)) {
+                case WAVE_ChunkID_fmt: {
+                    WAVE_fmt *fmt = (WAVE_fmt *)GetChunkData(Iter);
+                    Assert(fmt->wFormatTag == 1); // NOTE: Only support PCM
+                    Assert(fmt->nSamplesPerSec == 48000);
+                    Assert(fmt->wBitsPerSample == 16);
+                    Assert(fmt->nBlockAlign == (sizeof(int16) * fmt->nChannels));
+                    ChannelCount = fmt->nChannels;
+                } break;
+
+                case WAVE_ChunkID_data: {
+                    SampleData = (int16 *)GetChunkData(Iter);
+                    SampleDataSize = GetChunkDataSize(Iter);
+                } break;
+            }
+        }
+
+        Assert(ChannelCount && SampleData);
+
+        Result.ChannelCount = ChannelCount;
+        Result.SampleCount = SampleDataSize / (ChannelCount * sizeof(int16));
+        if (ChannelCount == 1) {
+            Result.Samples[0] = SampleData;
+            Result.Samples[1] = 0;
+        } else if (ChannelCount == 2) {
+            Result.Samples[0] = SampleData;
+            Result.Samples[1] = SampleData + Result.SampleCount;
+
+            for (uint32 SampleIndex = 0; SampleIndex < Result.SampleCount; ++SampleIndex) {
+                int16 Source = SampleData[2 * SampleIndex];
+                SampleData[2 * SampleIndex] = SampleData[SampleIndex];
+                SampleData[SampleIndex] = Source;
+            }
+        } else {
+            Assert(!"Invalid channel count in WAV file");
+        }
+
+        // TODO: Load right channels
+        Result.ChannelCount = 1;
     }
 
     return Result;
