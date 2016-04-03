@@ -200,6 +200,7 @@ ZeroSize(memory_index Size, void *Ptr) {
 #include "handmade_entity.h"
 #include "handmade_render_group.h"
 #include "handmade_asset.h"
+#include "handmade_random.h"
 
 struct low_entity {
     // TODO: It's kind of busted that P's can be invliad here,
@@ -241,9 +242,18 @@ struct hero_bitmap_ids {
     bitmap_id Torso;
 };
 
+struct playing_sound {
+    real32 Volume[2];
+    sound_id ID;
+    uint32 SamplesPlayed;
+
+    playing_sound *Next;
+};
+
 struct game_state {
     bool32 IsInitialized;
 
+    memory_arena MetaArena;
     memory_arena WorldArena;
     world *World;
 
@@ -277,9 +287,11 @@ struct game_state {
     loaded_bitmap TestDiffuse; // TODO: Re-fill this guy with gray;
     loaded_bitmap TestNormal;
 
-    loaded_sound TestSound;
+    random_series GeneralEntropy;
     real32 tSine;
-    uint32 TestSampleIndex;
+
+    playing_sound *FirstPlayingSound;
+    playing_sound *FirstFreePlayingSound;
 };
 
 struct task_with_memory {

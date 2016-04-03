@@ -469,7 +469,7 @@ int main(int argc, char *argv[]) {
     SDLResizeDIBSection(Window, &GlobalBackBuffer, 960, 540);
 
     // TODO: Set GameUpdateHz by monitor refresh HZ
-    real32 GameUpdateHz = 30.0f;
+    real32 GameUpdateHz = 60.0f;
     real32 TargetSecondsPerFrame = 1.0f / GameUpdateHz;
 
     sdl_sound_output SoundOutput = {};

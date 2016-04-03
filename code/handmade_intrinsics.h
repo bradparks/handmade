@@ -8,20 +8,18 @@
 
 #if COMPILER_MSVC
 #define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
-inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 Expected, uint32 New) {
-    uint32 Result = _InterlockedCompareExchange((long *)Value, Expected, New);
+inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, uint32 Expected) {
+    uint32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
     return Result;
 }
 #elif HANDMADE_SDL
 #include <SDL2/SDL.h>
 #define CompletePreviousWritesBeforeFutureWrites SDL_CompilerBarrier()
-inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 Expected, uint32 New) {
-    SDL_atomic_t Atomic;
-    Atomic.value = *Value;
-    if (SDL_AtomicCAS(&Atomic, Expected, New)) {
+inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, uint32 Expected) {
+    if (SDL_AtomicCAS((SDL_atomic_t *)Value, Expected, New)) {
         return Expected;
     } else {
-        return Atomic.value;
+        return *Value;
     }
 }
 #else
