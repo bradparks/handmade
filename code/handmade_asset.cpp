@@ -249,7 +249,7 @@ GetChunkDataSize(riff_iterator Iter) {
 }
 
 internal loaded_sound
-DEBUGLoadWAV(char *FileName) {
+DEBUGLoadWAV(char *FileName, uint32 SectionFirstSampleIndex, uint32 SectionSampleCount) {
     loaded_sound Result = {};
 
     debug_read_file_result ReadResult = DEBUGPlatformReadEntireFile(FileName);
@@ -304,6 +304,16 @@ DEBUGLoadWAV(char *FileName) {
 
         // TODO: Load right channels
         Result.ChannelCount = 1;
+        if (SectionSampleCount) {
+            Assert(SectionFirstSampleIndex + SectionSampleCount <= Result.SampleCount);
+            Result.SampleCount = SectionSampleCount;
+            for (uint32 ChannelIndex = 0;
+                 ChannelIndex < Result.ChannelCount;
+                 ++ChannelIndex)
+            {
+                Result.Samples[ChannelIndex] += SectionFirstSampleIndex;
+            }
+        }
     }
 
     return Result;
@@ -323,7 +333,7 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(LoadSoundWork) {
 
     asset_sound_info *Info = Work->Assets->SoundInfos + Work->ID.Value;
 
-    *Work->Sound = DEBUGLoadWAV(Info->FileName);
+    *Work->Sound = DEBUGLoadWAV(Info->FileName, Info->FirstSampleIndex, Info->SampleCount);
 
     CompletePreviousWritesBeforeFutureWrites;
 
@@ -487,13 +497,16 @@ DEBUGAddBitmapInfo(game_assets *Assets, char *FileName, v2 AlignPercentage) {
 }
 
 internal sound_id
-DEBUGAddSoundInfo(game_assets *Assets, char *FileName) {
+DEBUGAddSoundInfo(game_assets *Assets, char *FileName, u32 FirstSampleIndex, u32 SampleCount) {
     Assert(Assets->DEBUGUsedSoundCount < Assets->SoundCount);
 
     sound_id ID = {Assets->DEBUGUsedSoundCount++};
 
     asset_sound_info *Info = Assets->SoundInfos + ID.Value;
     Info->FileName = FileName;
+    Info->FirstSampleIndex = FirstSampleIndex;
+    Info->SampleCount = SampleCount;
+    Info->NextIDToPlay.Value = 0;
 
     return ID;
 }
@@ -519,17 +532,19 @@ AddBitmapAsset(game_assets *Assets, char *FileName, v2 AlignPercentage = V2(0.5f
     Assets->DEBUGAsset = Asset;
 }
 
-internal void
-AddSoundAsset(game_assets *Assets, char *FileName) {
+internal asset *
+AddSoundAsset(game_assets *Assets, char *FileName, u32 FirstSampleIndex = 0, u32 SampleCount = 0) {
     Assert(Assets->DEBUGAssetType);
     Assert(Assets->DEBUGAssetType->OnePastLastAssetIndex < Assets->AssetCount);
 
     asset *Asset = Assets->Assets + Assets->DEBUGAssetType->OnePastLastAssetIndex++;
     Asset->FirstTagIndex = Assets->DEBUGUsedTagCount;
     Asset->OnePastLastTagIndex = Asset->FirstTagIndex;
-    Asset->SlotID = DEBUGAddSoundInfo(Assets, FileName).Value;
+    Asset->SlotID = DEBUGAddSoundInfo(Assets, FileName, FirstSampleIndex, SampleCount).Value;
 
     Assets->DEBUGAsset = Asset;
+
+    return Asset;
 }
 
 internal void
@@ -675,8 +690,25 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
     AddSoundAsset(Assets, "test3/glide_00.wav");
     EndAssetType(Assets);
 
+    u32 OneMusicChunk = 1 * 48000;
+    u32 TotalMusicSampleCount = 7468095;
     BeginAssetType(Assets, Asset_Music);
-    AddSoundAsset(Assets, "test3/music_test.wav");
+    asset *LastMusic = 0;
+    for (u32 FirstSampleIndex = 0;
+         FirstSampleIndex < TotalMusicSampleCount;
+         FirstSampleIndex += OneMusicChunk)
+    {
+        u32 SampleCount = TotalMusicSampleCount - FirstSampleIndex;
+        if (SampleCount > OneMusicChunk) {
+            SampleCount = OneMusicChunk;
+        }
+
+        asset *ThisMusic = AddSoundAsset(Assets, "test3/music_test.wav", FirstSampleIndex, SampleCount);
+        if (LastMusic) {
+            Assets->SoundInfos[LastMusic->SlotID].NextIDToPlay.Value = ThisMusic->SlotID;
+        }
+        LastMusic = ThisMusic;
+    }
     EndAssetType(Assets);
 
     BeginAssetType(Assets, Asset_Puhp);
