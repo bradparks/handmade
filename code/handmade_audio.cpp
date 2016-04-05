@@ -37,6 +37,9 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
     real32 *RealChannel0 = PushArray(TempArena, SoundBuffer->SampleCount, real32);
     real32 *RealChannel1 = PushArray(TempArena, SoundBuffer->SampleCount, real32);
 
+    real32 SecondsPerSample = 1.0f / SoundBuffer->SamplesPerSecond;
+#define OutputChannelCount 2
+
     // NOTE: Clear out the mixer channels
     {
         real32 *Dest0 = RealChannel0;
@@ -69,9 +72,8 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
                 asset_sound_info *Info = GetSoundInfo(Assets, PlayingSound->ID);
                 PrefetchSound(Assets, Info->NextIDToPlay);
 
-                // TODO: Handle stereo!
-                real32 Volume0 = PlayingSound->Volume[0];
-                real32 Volume1 = PlayingSound->Volume[1];
+                v2 Volume = PlayingSound->CurrentVolume;
+                v2 dVolume = SecondsPerSample * PlayingSound->dCurrentVolume;
 
                 u32 SamplesToMix = TotalSamplesToMix;
                 u32 SamplesRemainingInSound = LoadedSound->SampleCount - PlayingSound->SamplesPlayed;
@@ -79,13 +81,42 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
                     SamplesToMix = SamplesRemainingInSound;
                 }
 
+                b32 VolumeEnded[OutputChannelCount] = {};
+                for (u32 ChannelIndex = 0;
+                     ChannelIndex < ArrayCount(VolumeEnded);
+                     ++ChannelIndex)
+                {
+                    if (dVolume.E[ChannelIndex] != 0.0f) {
+                        real32 DeltaVolume = PlayingSound->TargetVolume.E[ChannelIndex] -
+                                             Volume.E[ChannelIndex];
+                        real32 VolumeSampleCount = (u32)((DeltaVolume / dVolume.E[ChannelIndex]) + 0.5f);
+                        if (SamplesToMix > VolumeSampleCount) {
+                            SamplesToMix = VolumeSampleCount;
+                            VolumeEnded[ChannelIndex] = true;
+                        }
+                    }
+                }
+
+                // TODO: Handle stereo!
                 for (uint32 SampleIndex = PlayingSound->SamplesPlayed;
                      SampleIndex < (PlayingSound->SamplesPlayed + SamplesToMix);
                      ++SampleIndex)
                 {
                     real32 SampleValue = LoadedSound->Samples[0][SampleIndex];
-                    *Dest0++ += Volume0 * SampleValue;
-                    *Dest1++ += Volume1 * SampleValue;
+                    *Dest0++ += AudioState->MasterVolume.E[0] * Volume.E[0] * SampleValue;
+                    *Dest1++ += AudioState->MasterVolume.E[1] * Volume.E[1] * SampleValue;
+
+                    Volume += dVolume;
+                }
+
+                PlayingSound->CurrentVolume = Volume;
+
+                for (u32 ChannelIndex = 0; ChannelIndex < ArrayCount(VolumeEnded); ++ ChannelIndex) {
+                    if (VolumeEnded[ChannelIndex]) {
+                        PlayingSound->CurrentVolume.E[ChannelIndex] =
+                            PlayingSound->TargetVolume.E[ChannelIndex];
+                        PlayingSound->dCurrentVolume.E[ChannelIndex] = 0.0f;
+                    }
                 }
 
                 Assert(TotalSamplesToMix >= SamplesToMix);
@@ -99,8 +130,6 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
                     } else {
                         SoundFinished = true;
                     }
-                } else {
-                    Assert(TotalSamplesToMix == 0);
                 }
             } else {
                 LoadSound(Assets, PlayingSound->ID);
@@ -127,6 +156,7 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
              SampleIndex < SoundBuffer->SampleCount;
              ++SampleIndex)
         {
+            // TODO: Once this is in SIMD, clamp!
             *SampleOut++ = (int16)(*Source0++ + 0.5f);
             *SampleOut++ = (int16)(*Source1++ + 0.5f);
         }
@@ -148,8 +178,8 @@ PlaySound(audio_state *AudioState, sound_id SoundID) {
 
     PlayingSound->SamplesPlayed = 0;
     // TODO: Should these default to 0.5f/0.5f for centerred?
-    PlayingSound->Volume[0] = 1.0f;
-    PlayingSound->Volume[1] = 1.0f;
+    PlayingSound->CurrentVolume = PlayingSound->TargetVolume = V2(1.0f, 1.0f);
+    PlayingSound->dCurrentVolume = V2(0.0f, 0.0f);
     PlayingSound->ID = SoundID; //GetFirstSoundFrom(TranState->Assets, Asset_Music);
 
     PlayingSound->Next = AudioState->FirstPlayingSound;
@@ -159,8 +189,22 @@ PlaySound(audio_state *AudioState, sound_id SoundID) {
 }
 
 internal void
+ChangeVolume(audio_state *AudioState, playing_sound *Sound, real32 FadeDurationInSeconds,
+             v2 Volume)
+{
+    if (FadeDurationInSeconds <= 0.0f) {
+        Sound->CurrentVolume = Sound->TargetVolume = Volume;
+    } else {
+        real32 OneOverFade = 1.0f / FadeDurationInSeconds;
+        Sound->TargetVolume = Volume;
+        Sound->dCurrentVolume = (Sound->TargetVolume - Sound->CurrentVolume) * OneOverFade;
+    }
+}
+
+internal void
 InitializeAudioState(audio_state *AudioState, memory_arena *PermArena) {
     AudioState->PermArena = PermArena;
     AudioState->FirstPlayingSound = 0;
     AudioState->FirstFreePlayingSound = 0;
+    AudioState->MasterVolume = V2(1.0f, 1.0f);
 }

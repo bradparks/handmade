@@ -73,6 +73,7 @@ typedef int16 s16;
 typedef int32 s32;
 typedef int64 s64;
 typedef int32 s32;
+typedef bool32 b32;
 
 typedef uint8 u08;
 typedef uint16 u16;

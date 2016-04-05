@@ -284,6 +284,7 @@ struct game_state {
     real32 tSine;
 
     audio_state AudioState;
+    playing_sound *Music;
 };
 
 struct task_with_memory {

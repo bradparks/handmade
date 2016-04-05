@@ -776,7 +776,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
         TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(64), TranState);
 
-        PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Music));
+        GameState->Music = PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Music));
 
         // TODO: Pick a real number here!
         TranState->GroundBufferCount = 128;
@@ -872,18 +872,22 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
             ConHero->dSword = {};
 
             if (Controller->ActionUp.EndedDown) {
+                ChangeVolume(&GameState->AudioState, GameState->Music, 10.0f, V2(1.0f, 1.0f));
                 ConHero->dSword = V2(0.0f, 1.0f);
             }
 
             if (Controller->ActionDown.EndedDown) {
+                ChangeVolume(&GameState->AudioState, GameState->Music, 10.0f, V2(0.0f, 0.0f));
                 ConHero->dSword = V2(0.0f, -1.0f);
             }
 
             if (Controller->ActionLeft.EndedDown) {
+                ChangeVolume(&GameState->AudioState, GameState->Music, 5.0f, V2(1.0f, 0.0f));
                 ConHero->dSword = V2(-1.0f, 0.0f);
             }
 
             if (Controller->ActionRight.EndedDown) {
+                ChangeVolume(&GameState->AudioState, GameState->Music, 5.0f, V2(0.0f, 1.0f));
                 ConHero->dSword = V2(1.0f, 0.0f);
             }
         }
