@@ -267,7 +267,6 @@ Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize) {
                 BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
 
                 // NOTE: "Create" a primary buffer
-                // TODO: DSBCAPS_GLOBALFOCUS?
                 LPDIRECTSOUNDBUFFER PrimaryBuffer;
                 if (SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0))) {
                     HRESULT Error = PrimaryBuffer->SetFormat(&WaveFormat);
@@ -284,11 +283,16 @@ Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize) {
                 // TODO: Diagnostic
             }
 
+            // TODO: In release mode, should we not specify DSBCAPS_GLOBALFOCUS?
+
             // NOTE: "Create" a secondary buffer
             // TODO: DSBCAPS_GETCURRENTPOSITION2
             DSBUFFERDESC BufferDescription = {};
             BufferDescription.dwSize = sizeof(BufferDescription);
-            BufferDescription.dwFlags = 0;
+            BufferDescription.dwFlags = DSBCAPS_GETCURRENTPOSITION2;
+#if HANDMADE_INTERNAL
+            BufferDescription.dwFlags |= DSBCAPS_GLOBALFOCUS;
+#endif
             BufferDescription.dwBufferBytes = BufferSize;
             BufferDescription.lpwfxFormat = &WaveFormat;
             HRESULT Error = DirectSound->CreateSoundBuffer(&BufferDescription, &GlobalSecondaryBuffer, 0);
@@ -1210,6 +1214,9 @@ WinMain(HINSTANCE Instance,
                     NewInput->ExecutableReloaded = false;
                     FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceGameCodeDLLFullpath);
                     if (CompareFileTime(&NewDLLWriteTime, &Game.DLLLastWriteTime) != 0) {
+                        Win32CompleteAllWork(&HighPriorityQueue);
+                        Win32CompleteAllWork(&LowPriorityQueue);
+
                         Win32UnloadGameCode(&Game);
                         Game = Win32LoadGameCode(SourceGameCodeDLLFullpath,
                                                  TempGameCodeDLLFullpath,

@@ -537,6 +537,9 @@ int main(int argc, char *argv[]) {
         NewInput->ExecutableReloaded = false;
         time_t NewDLLWriteTime = SDLGetLastWriteTime(SourceGameCodeDLLFullpath);
         if (difftime(NewDLLWriteTime, Game.DLLLastWriteTime) > 0) {
+            SDLCompleteAllWork(&HighPriorityQueue);
+            SDLCompleteAllWork(&LowPriorityQueue);
+
             SDLUnloadGameCode(&Game);
             Game = SDLLoadGameCode(SourceGameCodeDLLFullpath,
                                    TempGameCodeDLLFullpath,

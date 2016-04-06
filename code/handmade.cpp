@@ -820,6 +820,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     }
 
 #if 0
+    // TODO: Re-eanble this? But make sure we don't touch ones in flight??
     if (Input->ExecutableReloaded) {
         for (uint32 GroundBufferIndex = 0;
              GroundBufferIndex < TranState->GroundBufferCount;
@@ -836,6 +837,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     //
     // NOTE:
     //
+    {
+        v2 MusicVolume;
+        MusicVolume.y = SafeRatio0((r32)Input->MouseX, Buffer->Width);
+        MusicVolume.x = 1.0f - MusicVolume.y;
+        ChangeVolume(&GameState->AudioState, GameState->Music, 0.01f, MusicVolume);
+    }
+
     for (size_t ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex) {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
         controlled_hero *ConHero = GameState->ControlledHeroes + ControllerIndex;
