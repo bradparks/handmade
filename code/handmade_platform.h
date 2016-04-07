@@ -118,6 +118,8 @@ typedef size_t memory_index;
 
 // TODO: swap, min, max ... macros ???
 
+#define AlignPow2(Value, Alignment) ((Value + (Alignment - 1)) & ~(Alignment - 1))
+#define Align4(Value) AlignPow2(Value, 4)
 #define Align16(Value) ((Value + 15) & ~15)
 
 inline uint32
@@ -195,6 +197,8 @@ typedef struct game_offscreen_buffer {
 typedef struct game_sound_output_buffer {
     int SamplesPerSecond;
     int SampleCount;
+
+    // IMPORTANT: Samples must be padded to a multiple of 4 samples!
     int16 *Samples;
 } game_sound_output_buffer;
 

@@ -34,23 +34,26 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
 {
     temporary_memory MixerMemory = BeginTemporaryMemory(TempArena);
 
-    real32 *RealChannel0 = PushArray(TempArena, SoundBuffer->SampleCount, real32);
-    real32 *RealChannel1 = PushArray(TempArena, SoundBuffer->SampleCount, real32);
+    u32 SampleCountAlign4 = Align4(SoundBuffer->SampleCount);
+    u32 SampleCount4 = SampleCountAlign4 / 4;
+
+    __m128 *RealChannel0 = PushArray(TempArena, SampleCount4, __m128, 16);
+    __m128 *RealChannel1 = PushArray(TempArena, SampleCount4, __m128, 16);
 
     real32 SecondsPerSample = 1.0f / SoundBuffer->SamplesPerSecond;
 #define OutputChannelCount 2
 
     // NOTE: Clear out the mixer channels
+    __m128 Zero = _mm_set1_ps(0.0f);
+    __m128 MaxS16 = _mm_set1_ps((real32)32767.0f);
+    __m128 MinS16 = _mm_set1_ps((real32)-32768.0f);
     {
-        real32 *Dest0 = RealChannel0;
-        real32 *Dest1 = RealChannel1;
+        __m128 *Dest0 = RealChannel0;
+        __m128 *Dest1 = RealChannel1;
 
-        for (int SampleIndex = 0;
-             SampleIndex < SoundBuffer->SampleCount;
-             ++SampleIndex)
-        {
-            *Dest0++ = 0.0f;
-            *Dest1++ = 0.0f;
+        for (u32 SampleIndex = 0; SampleIndex < SampleCount4; ++SampleIndex) {
+            *Dest0++ = Zero;
+            *Dest1++ = Zero;
         }
     }
 
@@ -63,8 +66,8 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
         bool32 SoundFinished = false;
 
         uint32 TotalSamplesToMix = SoundBuffer->SampleCount;
-        real32 *Dest0 = RealChannel0;
-        real32 *Dest1 = RealChannel1;
+        real32 *Dest0 = (real32 *)RealChannel0;
+        real32 *Dest1 = (real32 *)RealChannel1;
 
         while (TotalSamplesToMix && !SoundFinished) {
             loaded_sound *LoadedSound = GetSound(Assets, PlayingSound->ID);
@@ -158,15 +161,19 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
 
     // NOTE: Convert to 16-bit
     {
-        real32 *Source0 = RealChannel0;
-        real32 *Source1 = RealChannel1;
+        __m128 *Source0 = RealChannel0;
+        __m128 *Source1 = RealChannel1;
 
         int16 *SampleOut = SoundBuffer->Samples;
-        for (int SampleIndex = 0;
-             SampleIndex < SoundBuffer->SampleCount;
-             ++SampleIndex)
-        {
+        for (int SampleIndex = 0; SampleIndex < SampleCount4; ++SampleIndex) {
             // TODO: Once this is in SIMD, clamp!
+            //__m128 MaxS16 = _mm_set1_ps((real32)32767.0f);
+            //__m128 MinS16 = _mm_set1_ps((real32)-32768.0f);
+
+            __m128i S0 = _mm_cvtps_epi32(*Source0++);
+            __m128i S1 = _mm_cvtps_epi32(*Source1++);
+            __m128i S01 = _mm_packs_epi32(S0, S1);
+
             *SampleOut++ = (int16)(*Source0++ + 0.5f);
             *SampleOut++ = (int16)(*Source1++ + 0.5f);
         }
