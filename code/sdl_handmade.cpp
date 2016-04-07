@@ -479,7 +479,8 @@ int main(int argc, char *argv[]) {
 
     SDL_AudioDeviceID Audio = SDLInitSound(SoundOutput.SamplesPerSecond);
 
-    int16 *Samples = (int16 *)mmap(0, (size_t)SoundOutput.BufferSize,
+    u32 MaxPossibleOverrun = 2 * 4 * sizeof(u16);
+    int16 *Samples = (int16 *)mmap(0, (size_t)(SoundOutput.BufferSize + MaxPossibleOverrun),
                                    PROT_READ | PROT_WRITE,
                                    MAP_PRIVATE | MAP_ANON, -1, 0);
 

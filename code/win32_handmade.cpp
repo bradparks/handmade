@@ -1123,7 +1123,8 @@ WinMain(HINSTANCE Instance,
 
             GlobalRunning = true;
 
-            int16 *Samples = (int16 *) VirtualAlloc(0, SoundOutput.SecondaryBufferSize,
+            u32 MaxPossibleOverrun = 2 * 4 * sizeof(u16);
+            int16 *Samples = (int16 *) VirtualAlloc(0, SoundOutput.SecondaryBufferSize + MaxPossibleOverrun,
                                                     MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
 #if HANDMADE_INTERNAL

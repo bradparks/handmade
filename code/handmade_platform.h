@@ -93,7 +93,9 @@ typedef size_t memory_index;
 
 #define Real32Maximum FLT_MAX
 
+#if !defined(internal)
 #define internal static
+#endif
 #define global_variable static
 #define local_persist static
 

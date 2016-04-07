@@ -45,15 +45,13 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
 
     // NOTE: Clear out the mixer channels
     __m128 Zero = _mm_set1_ps(0.0f);
-    __m128 MaxS16 = _mm_set1_ps((real32)32767.0f);
-    __m128 MinS16 = _mm_set1_ps((real32)-32768.0f);
     {
         __m128 *Dest0 = RealChannel0;
         __m128 *Dest1 = RealChannel1;
 
         for (u32 SampleIndex = 0; SampleIndex < SampleCount4; ++SampleIndex) {
-            *Dest0++ = Zero;
-            *Dest1++ = Zero;
+            _mm_store_ps((float *)Dest0++, Zero);
+            _mm_store_ps((float *)Dest1++, Zero);
         }
     }
 
@@ -164,18 +162,20 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
         __m128 *Source0 = RealChannel0;
         __m128 *Source1 = RealChannel1;
 
-        int16 *SampleOut = SoundBuffer->Samples;
-        for (int SampleIndex = 0; SampleIndex < SampleCount4; ++SampleIndex) {
-            // TODO: Once this is in SIMD, clamp!
-            //__m128 MaxS16 = _mm_set1_ps((real32)32767.0f);
-            //__m128 MinS16 = _mm_set1_ps((real32)-32768.0f);
+        __m128i *SampleOut = (__m128i *)SoundBuffer->Samples;
+        for (u32 SampleIndex = 0; SampleIndex < SampleCount4; ++SampleIndex) {
+            __m128 S0 = _mm_load_ps((float *)Source0++);
+            __m128 S1 = _mm_load_ps((float *)Source1++);
 
-            __m128i S0 = _mm_cvtps_epi32(*Source0++);
-            __m128i S1 = _mm_cvtps_epi32(*Source1++);
-            __m128i S01 = _mm_packs_epi32(S0, S1);
+            __m128i L = _mm_cvtps_epi32(S0);
+            __m128i R = _mm_cvtps_epi32(S1);
 
-            *SampleOut++ = (int16)(*Source0++ + 0.5f);
-            *SampleOut++ = (int16)(*Source1++ + 0.5f);
+            __m128i LR0 = _mm_unpacklo_epi32(L, R);
+            __m128i LR1 = _mm_unpackhi_epi32(L, R);
+
+            __m128i S01 = _mm_packs_epi32(LR0, LR1);
+
+            *SampleOut++ = S01;
         }
 
     }
