@@ -590,7 +590,7 @@ int main(int argc, char *argv[]) {
             // TODO: Game audio support here
             game_sound_output_buffer SoundBuffer = {};
             SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
-            SoundBuffer.SampleCount = SoundOutput.SamplesPerSecond * TargetSecondsPerFrame;
+            SoundBuffer.SampleCount = Align8((u32)(SoundOutput.SamplesPerSecond * TargetSecondsPerFrame));
             SoundBuffer.Samples = Samples;
             if (Game.GetSoundSamples) {
                 Game.GetSoundSamples(&GameMemory, &SoundBuffer);

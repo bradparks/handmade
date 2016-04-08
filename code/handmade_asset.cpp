@@ -285,15 +285,15 @@ DEBUGLoadWAV(char *FileName, uint32 SectionFirstSampleIndex, uint32 SectionSampl
         Assert(ChannelCount && SampleData);
 
         Result.ChannelCount = ChannelCount;
-        Result.SampleCount = SampleDataSize / (ChannelCount * sizeof(int16));
+        u32 SampleCount = SampleDataSize / (ChannelCount * sizeof(int16));
         if (ChannelCount == 1) {
             Result.Samples[0] = SampleData;
             Result.Samples[1] = 0;
         } else if (ChannelCount == 2) {
             Result.Samples[0] = SampleData;
-            Result.Samples[1] = SampleData + Result.SampleCount;
+            Result.Samples[1] = SampleData + SampleCount;
 
-            for (uint32 SampleIndex = 0; SampleIndex < Result.SampleCount; ++SampleIndex) {
+            for (uint32 SampleIndex = 0; SampleIndex < SampleCount; ++SampleIndex) {
                 int16 Source = SampleData[2 * SampleIndex];
                 SampleData[2 * SampleIndex] = SampleData[SampleIndex];
                 SampleData[SampleIndex] = Source;
@@ -303,17 +303,33 @@ DEBUGLoadWAV(char *FileName, uint32 SectionFirstSampleIndex, uint32 SectionSampl
         }
 
         // TODO: Load right channels
+        b32 AtEnd = true;
         Result.ChannelCount = 1;
         if (SectionSampleCount) {
-            Assert(SectionFirstSampleIndex + SectionSampleCount <= Result.SampleCount);
-            Result.SampleCount = SectionSampleCount;
-            for (uint32 ChannelIndex = 0;
-                 ChannelIndex < Result.ChannelCount;
-                 ++ChannelIndex)
-            {
+            Assert(SectionFirstSampleIndex + SectionSampleCount <= SampleCount);
+            AtEnd = ((SectionFirstSampleIndex + SectionSampleCount) == SampleCount);
+            SampleCount = SectionSampleCount;
+            for (uint32 ChannelIndex = 0; ChannelIndex < Result.ChannelCount; ++ChannelIndex) {
                 Result.Samples[ChannelIndex] += SectionFirstSampleIndex;
             }
         }
+
+        if (AtEnd) {
+            // TODO: All sounds have to be padded with their  subsequent sound out
+            // to 8 samples past their ned
+
+            u32 SampleCountAlign8 = Align8(SampleCount);
+            for (uint32 ChannelIndex = 0; ChannelIndex < Result.ChannelCount; ++ChannelIndex) {
+                for (u32 SampleIndex = SampleCount;
+                     SampleIndex < (SampleCount + 8);
+                     ++SampleIndex)
+                {
+                    Result.Samples[ChannelIndex][SampleIndex] = 0;
+                }
+            }
+        }
+
+        Result.SampleCount = SampleCount;
     }
 
     return Result;

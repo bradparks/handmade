@@ -121,8 +121,9 @@ typedef size_t memory_index;
 // TODO: swap, min, max ... macros ???
 
 #define AlignPow2(Value, Alignment) ((Value + (Alignment - 1)) & ~(Alignment - 1))
-#define Align4(Value) AlignPow2(Value, 4)
-#define Align16(Value) ((Value + 15) & ~15)
+#define Align4(Value) (((Value) + 3) & ~3)
+#define Align8(Value) (((Value) + 7) & ~7)
+#define Align16(Value) (((Value) + 15) & ~15)
 
 inline uint32
 SafeTruncateUInt64(uint64 Value) {
