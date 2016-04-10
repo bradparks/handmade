@@ -4,6 +4,6 @@ if WINDOWS()
     let &makeprg = 'cd ' . g:coeuvre_project_root . ' && build.bat'
     nnoremap <silent> <leader>br :call xolox#misc#os#exec({'command': 'cd ' . g:coeuvre_project_root . ' && run.bat'})<cr>
 else
-    let &makeprg = 'cd ' . g:coeuvre_project_root . ' && clear && ./build.sh'
-    nnoremap <silent> <leader>br :VimuxRunCommand("cd " . g:coeuvre_project_root . g:coeuvre_shell_cmd_and . "clear" . g:coeuvre_shell_cmd_and . "./run.sh")<cr>
+    let &makeprg = g:coeuvre_project_root . '/build.sh'
+    nnoremap <silent> <leader>br :VimuxRunCommand(g:coeuvre_project_root . "/run.sh")<cr>
 endif

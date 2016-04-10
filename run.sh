@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
+
+cd $(dirname $0)
 
 if [[ $OSTYPE == "darwin"* ]]; then
     exe="sdl_handmade"
