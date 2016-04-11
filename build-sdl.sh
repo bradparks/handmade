@@ -12,7 +12,7 @@ ldflags="-lSDL2"
 cd build
 
 # Asset file builder build
-#clang $cflags $ldflags $base/code/test_asset_builder.cpp -o test_asset_builder
+clang $cflags $ldflags $base/code/test_asset_builder.cpp -o test_asset_builder
 
 clang $cflags -O2 $base/code/handmade_optimized.cpp -c -o handmade_optimized.o
 

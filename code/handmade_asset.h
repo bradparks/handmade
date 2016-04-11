@@ -17,14 +17,6 @@ struct loaded_sound {
     int16 *Samples[2];
 };
 
-enum asset_tag_id {
-    Tag_Smoothness,
-    Tag_Flatness,
-    Tag_FacingDirection, // NOTE: Angle in radians off of due right
-
-    Tag_Count,
-};
-
 struct asset_bitmap_info {
     char *FileName;
     v2 AlignPercentage;
@@ -98,8 +90,6 @@ struct game_assets {
     asset_type AssetTypes[Asset_Count];
 
     // TODO: These should go away once we actually load a asset pack file
-    uint32 DEBUGUsedBitmapCount;
-    uint32 DEBUGUsedSoundCount;
     uint32 DEBUGUsedAssetCount;
     uint32 DEBUGUsedTagCount;
     asset_type *DEBUGAssetType;

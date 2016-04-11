@@ -98,29 +98,25 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
                 __m128 dVolume1 = _mm_set1_ps(dVolume.E[1]);
                 __m128 dVolumeChunk1 = _mm_set1_ps(dVolumeChunk.E[1]);
 
+                Assert(PlayingSound->SamplesPlayed >= 0.0f);
+
                 u32 ChunksToMix = TotalChunksToMix;
                 r32 RealChunksRemainingInSound =
                     (LoadedSound->SampleCount - RoundReal32ToInt32(PlayingSound->SamplesPlayed)) / dSampleChunk;
                 u32 ChunksRemainingInSound = RoundReal32ToInt32(RealChunksRemainingInSound);
 
-                b32 InputSampleEnded = false;
                 if (ChunksToMix > ChunksRemainingInSound) {
                     ChunksToMix = ChunksRemainingInSound;
-                    InputSampleEnded = true;
                 }
 
-                b32 VolumeEnded[OutputChannelCount] = {};
-                for (u32 ChannelIndex = 0;
-                     ChannelIndex < ArrayCount(VolumeEnded);
-                     ++ChannelIndex)
-                {
+                u32 VolumeEndsAt[OutputChannelCount] = {};
+                for (u32 ChannelIndex = 0; ChannelIndex < ArrayCount(VolumeEndsAt); ++ChannelIndex) {
                     if (dVolumeChunk.E[ChannelIndex] != 0.0f) {
-                        real32 DeltaVolume = PlayingSound->TargetVolume.E[ChannelIndex] -
-                                             Volume.E[ChannelIndex];
+                        real32 DeltaVolume = PlayingSound->TargetVolume.E[ChannelIndex] - Volume.E[ChannelIndex];
                         real32 VolumeChunkCount = (u32)(((DeltaVolume / dVolumeChunk.E[ChannelIndex]) + 0.5f));
                         if (ChunksToMix > VolumeChunkCount) {
                             ChunksToMix = VolumeChunkCount;
-                            VolumeEnded[ChannelIndex] = true;
+                            VolumeEndsAt[ChannelIndex] = VolumeChunkCount;
                         }
                     }
                 }
@@ -177,10 +173,9 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
                 PlayingSound->CurrentVolume.E[0] = ((real32 *)&Volume0)[0];
                 PlayingSound->CurrentVolume.E[1] = ((real32 *)&Volume1)[0];
 
-                for (u32 ChannelIndex = 0; ChannelIndex < ArrayCount(VolumeEnded); ++ ChannelIndex) {
-                    if (VolumeEnded[ChannelIndex]) {
-                        PlayingSound->CurrentVolume.E[ChannelIndex] =
-                            PlayingSound->TargetVolume.E[ChannelIndex];
+                for (u32 ChannelIndex = 0; ChannelIndex < ArrayCount(VolumeEndsAt); ++ ChannelIndex) {
+                    if (ChunksToMix == VolumeEndsAt[ChannelIndex]) {
+                        PlayingSound->CurrentVolume.E[ChannelIndex] = PlayingSound->TargetVolume.E[ChannelIndex];
                         PlayingSound->dCurrentVolume.E[ChannelIndex] = 0.0f;
                     }
                 }
@@ -189,9 +184,10 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
                 Assert(TotalChunksToMix >= ChunksToMix);
                 TotalChunksToMix -= ChunksToMix;
 
-                if (InputSampleEnded) {
+                if (ChunksToMix == ChunksRemainingInSound) {
                     if (IsValid(Info->NextIDToPlay)) {
                         PlayingSound->ID = Info->NextIDToPlay;
+                        Assert(PlayingSound->SamplesPlayed >= LoadedSound->SampleCount);
                         PlayingSound->SamplesPlayed -= (r32)LoadedSound->SampleCount;
                         if (PlayingSound->SamplesPlayed < 0) {
                             PlayingSound->SamplesPlayed = 0.0f;

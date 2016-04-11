@@ -517,8 +517,6 @@ AddBitmapAsset(game_assets *Assets, char *FileName, v2 AlignPercentage = V2(0.5f
     Asset->Bitmap.FileName = PushString(&Assets->Arena, FileName);
     Asset->Bitmap.AlignPercentage = AlignPercentage;
 
-    Assets->DEBUGUsedBitmapCount++;
-
     Assets->DEBUGAsset = Asset;
 
     return Result;
@@ -581,8 +579,6 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
     Assets->TagCount = 1024 * Asset_Count;
     Assets->Tags = PushArray(Arena, Assets->TagCount, asset_tag);
 
-    Assets->DEBUGUsedBitmapCount = 1;
-    Assets->DEBUGUsedSoundCount = 1;
     Assets->DEBUGUsedAssetCount = 1;
 
     BeginAssetType(Assets, Asset_Shadow);
