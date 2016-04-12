@@ -89,11 +89,13 @@ struct game_assets {
 
     asset_type AssetTypes[Asset_Count];
 
+#if 0
     // TODO: These should go away once we actually load a asset pack file
     uint32 DEBUGUsedAssetCount;
     uint32 DEBUGUsedTagCount;
     asset_type *DEBUGAssetType;
     asset *DEBUGAsset;
+#endif
 };
 
 

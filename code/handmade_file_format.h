@@ -37,8 +37,8 @@ struct hha_bitmap {
 };
 
 struct hha_sound {
-    u32 FirstSampleIndex;
     u32 SampleCount;
+    u32 ChannelCount;
     u32 NextIDToPlay;
 };
 

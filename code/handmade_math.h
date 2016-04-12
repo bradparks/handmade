@@ -805,4 +805,30 @@ InvertedInfinityRectangle(void) {
     return Result;
 }
 
+inline v4
+SRGB255ToLinear1(v4 C) {
+    v4 Result;
+
+    real32 Inv255 = 1.0f / 255.0f;
+
+    Result.r = Square(Inv255 * C.r);
+    Result.g = Square(Inv255 * C.g);
+    Result.b = Square(Inv255 * C.b);
+    Result.a = Inv255 * C.a;
+
+    return Result;
+}
+
+inline v4
+Linear1ToSRGB255(v4 C) {
+    v4 Result;
+
+    Result.r = SquareRoot(C.r) * 255.0f;
+    Result.g = SquareRoot(C.g) * 255.0f;
+    Result.b = SquareRoot(C.b) * 255.0f;
+    Result.a = C.a * 255.0f;
+
+    return Result;
+}
+
 #endif
