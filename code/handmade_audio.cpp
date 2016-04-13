@@ -113,7 +113,7 @@ OutputPlayingSounds(audio_state *AudioState, game_sound_output_buffer *SoundBuff
                 for (u32 ChannelIndex = 0; ChannelIndex < ArrayCount(VolumeEndsAt); ++ChannelIndex) {
                     if (dVolumeChunk.E[ChannelIndex] != 0.0f) {
                         real32 DeltaVolume = PlayingSound->TargetVolume.E[ChannelIndex] - Volume.E[ChannelIndex];
-                        real32 VolumeChunkCount = (u32)(((DeltaVolume / dVolumeChunk.E[ChannelIndex]) + 0.5f));
+                        u32 VolumeChunkCount = (u32)(((DeltaVolume / dVolumeChunk.E[ChannelIndex]) + 0.5f));
                         if (ChunksToMix > VolumeChunkCount) {
                             ChunksToMix = VolumeChunkCount;
                             VolumeEndsAt[ChannelIndex] = VolumeChunkCount;
