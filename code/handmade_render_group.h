@@ -112,8 +112,9 @@ struct render_transform {
 // in there and be done with it.
 struct render_group {
     struct game_assets *Assets;
-
     real32 GlobalAlpha;
+
+    u32 GenerationID;
 
     v2 MonitorHalfDimInMeters;
 
@@ -124,6 +125,7 @@ struct render_group {
     uint8 *PushBufferBase;
 
     uint32 MissingResourceCount;
+    b32 RendersInBackground;
 };
 
 void DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,

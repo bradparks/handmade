@@ -659,7 +659,8 @@ ToggleFullscreen(HWND Window) {
     if (Style & WS_OVERLAPPEDWINDOW) {
         MONITORINFO MonitorInfo = { sizeof(MonitorInfo) };
         if (GetWindowPlacement(Window, &GlobalWindowPosition) &&
-            GetMonitorInfo(MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY), &MonitorInfo)) {
+            GetMonitorInfo(MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY), &MonitorInfo))
+        {
 
             SetWindowLong(Window, GWL_STYLE, Style & ~WS_OVERLAPPEDWINDOW);
             SetWindowPos(Window, HWND_TOP,
