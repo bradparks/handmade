@@ -10,14 +10,6 @@
 #include "handmade_intrinsics.h"
 #include "handmade_math.h"
 
-struct bitmap_id {
-    uint32 Value;
-};
-
-struct sound_id {
-    uint32 Value;
-};
-
 enum asset_type {
     AssetType_Sound,
     AssetType_Bitmap,
