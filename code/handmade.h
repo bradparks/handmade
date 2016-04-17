@@ -345,9 +345,7 @@ GetLowEntity(game_state *GameState, uint32 Index) {
     return Result;
 }
 
-global_variable platform_add_entry *PlatformAddEntry;
-global_variable platform_complete_all_work *PlatformCompleteAllWork;
-global_variable debug_platform_read_entire_file *DEBUGPlatformReadEntireFile;
+global_variable platform_api Platform;
 
 internal task_with_memory *BeginTaskWithMemory(transient_state *TranState);
 internal void EndTaskWithMemory(task_with_memory *Task);

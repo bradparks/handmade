@@ -667,7 +667,7 @@ TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
 
 #if 1
             // NOTE: This is the multi-threaded path
-            PlatformAddEntry(RenderQueue, DoTileRenderWork, Work);
+            Platform.AddEntry(RenderQueue, DoTileRenderWork, Work);
 #else
             // NOTE: This is the single-threaded path
             DoTileRenderWork(RenderQueue, Work);
@@ -675,7 +675,7 @@ TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
         }
     }
 
-    PlatformCompleteAllWork(RenderQueue);
+    Platform.CompleteAllWork(RenderQueue);
 }
 
 internal render_group *

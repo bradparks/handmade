@@ -989,6 +989,25 @@ Win32MakeQueue(platform_work_queue *Queue, uint32 ThreadCount) {
     }
 }
 
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin) {
+    platform_file_group FileGroup = {};
+
+    return FileGroup;
+}
+
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_END(Win32GetAllFilesOfTypeEnd) {
+}
+
+internal PLATFORM_OPEN_FILE(Win32OpenFile) {
+    return 0;
+}
+
+internal PLATFORM_READ_DATA_FROM_FILE(Win32ReadDataFromFile) {
+}
+
+internal PLATFORM_FILE_ERROR(Win32FileError) {
+}
+
 int CALLBACK
 WinMain(HINSTANCE Instance,
         HINSTANCE hPrevInstance,
@@ -1135,14 +1154,23 @@ WinMain(HINSTANCE Instance,
 #endif
             game_memory GameMemory = {};
             GameMemory.PermanentStorageSize = Megabytes(64);
-            GameMemory.TransientStorageSize = Gigabytes(1);
+            GameMemory.TransientStorageSize = Megabytes(128);
             GameMemory.HighPriorityQueue = &HighPriorityQueue;
             GameMemory.LowPriorityQueue = &LowPriorityQueue;
-            GameMemory.PlatformAddEntry = Win32AddEntry;
-            GameMemory.PlatformCompleteAllWork = Win32CompleteAllWork;
-            GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
-            GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
-            GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
+
+            GameMemory.PlatformAPI.AddEntry = Win32AddEntry;
+            GameMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
+
+
+            GameMemory.PlatformAPI.GetAllFilesOfTypeBegin = Win32GetAllFilesOfTypeBegin;
+            GameMemory.PlatformAPI.GetAllFilesOfTypeEnd = Win32GetAllFilesOfTypeEnd;
+            GameMemory.PlatformAPI.OpenFile = Win32OpenFile;
+            GameMemory.PlatformAPI.ReadDataFromFile = Win32ReadDataFromFile;
+            GameMemory.PlatformAPI.FileError = Win32FileError;
+
+            GameMemory.PlatformAPI.DEBUGFreeFileMemory = DEBUGPlatformFreeFileMemory;
+            GameMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGPlatformReadEntireFile;
+            GameMemory.PlatformAPI.DEBUGWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
             // TODO: Handle various memory footprints (USING SYSTEM METRICS)
 
@@ -1152,9 +1180,9 @@ WinMain(HINSTANCE Instance,
             // TODO: TransientStorage needs to be broken up
             // into game transient and cache transient, and only the
             // former need be saved for state playback.
-            Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.PermanentStorageSize;
+            Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
             Win32State.GameMemoryBlock = VirtualAlloc(BaseAddress,
-                                                 (size_t) Win32State.TotalSize,
+                                                 (size_t)Win32State.TotalSize,
                                                  MEM_RESERVE | MEM_COMMIT,
                                                  PAGE_READWRITE);
             GameMemory.PermanentStorage = Win32State.GameMemoryBlock;

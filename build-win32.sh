@@ -9,7 +9,7 @@ pushd build
 rm -f *.pdb
 echo WAITING FOR PDB > lock.tmp
 
-REM Asset file builder build
+# Asset file builder build
 cl $CommonCompilerFlags -D_CRT_SECURE_NO_WARNINGS ../code/test_asset_builder.cpp /link $CommonLinkerFlags
 
 cl $CommonCompilerFlags -O2 -c ../code/handmade_optimized.cpp -Fohandmade_optimized.obj -LD
