@@ -7,6 +7,7 @@
 #include "math.h"
 
 #if COMPILER_MSVC
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
 #define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
 inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, uint32 Expected) {
     uint32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
@@ -14,6 +15,7 @@ inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, ui
 }
 #elif HANDMADE_SDL
 #include <SDL2/SDL.h>
+#define CompletePreviousReadsBeforeFutureReads SDL_CompilerBarrier()
 #define CompletePreviousWritesBeforeFutureWrites SDL_CompilerBarrier()
 inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, uint32 Expected) {
     if (SDL_AtomicCAS((SDL_atomic_t *)Value, Expected, New)) {
