@@ -254,7 +254,7 @@ typedef struct game_input {
 } game_input;
 
 typedef struct platform_file_handle {
-    b32 HasErrors;
+    b32 NoErrors;
 } platform_file_handle;
 
 typedef struct platform_file_group {
@@ -271,13 +271,13 @@ typedef PLATFORM_GET_ALL_FILES_OF_TYPE_END(platform_get_all_files_of_type_end);
 #define PLATFORM_OPEN_FILE(name) platform_file_handle *name(platform_file_group FileGroup, u32 FileIndex)
 typedef PLATFORM_OPEN_FILE(platform_open_file);
 
-#define PLATFORM_READ_DATA_FROM_FILE(name) void name(platform_file_handle *Handle, u64 Offset, u64 Size, void *Dest)
+#define PLATFORM_READ_DATA_FROM_FILE(name) void name(platform_file_handle *Source, u64 Offset, u64 Size, void *Dest)
 typedef PLATFORM_READ_DATA_FROM_FILE(platform_read_data_from_file);
 
 #define PLATFORM_FILE_ERROR(name) void name(platform_file_handle *Handle, char *Message)
 typedef PLATFORM_FILE_ERROR(platform_file_error);
 
-#define PlatformNoFileErrors(Handle) (!(Handle)->HasErrors)
+#define PlatformNoFileErrors(Handle) ((Handle)->NoErrors)
 
 struct platform_work_queue;
 

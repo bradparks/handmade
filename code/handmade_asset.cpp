@@ -96,7 +96,7 @@ LoadSound(game_assets *Assets, sound_id ID) {
             load_asset_work *Work = PushStruct(&Task->Arena, load_asset_work);
             Work->Task = Task;
             Work->Slot = Assets->Slots + ID.Value;
-            Work->Handle = 0;
+            Work->Handle = GetFileHandleFor(Assets, Asset->FileIndex);
             Work->Offset = Asset->HHA.DataOffset;
             Work->Size = MemorySize;
             Work->Destination = Memory;
@@ -249,21 +249,21 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
 
             File->TagBase = Assets->TagCount;
 
-            u32 AssetTypeArraySize = File->Header.AssetTypeCount * sizeof(hha_asset_type);
-
             ZeroStruct(File->Header);
             File->Handle = Platform.OpenFile(FileGroup, FileIndex);
             Platform.ReadDataFromFile(File->Handle, 0, sizeof(File->Header), &File->Header);
+
+            u32 AssetTypeArraySize = File->Header.AssetTypeCount * sizeof(hha_asset_type);
             File->AssetTypeArray = (hha_asset_type *)PushSize(Arena, AssetTypeArraySize);
             Platform.ReadDataFromFile(File->Handle, File->Header.AssetTypes,
-                                     AssetTypeArraySize, &File->AssetTypeArray);
+                                     AssetTypeArraySize, File->AssetTypeArray);
 
-            if (File->Header.MagicValue == HHA_MAGIC_VALUE) {
+            if (File->Header.MagicValue != HHA_MAGIC_VALUE) {
                 Platform.FileError(File->Handle, "HHA file has an invalid magic value.");
 
             }
 
-            if (File->Header.Version == HHA_VERSION) {
+            if (File->Header.Version != HHA_VERSION) {
                 Platform.FileError(File->Handle, "HHA file is of a later version.");
             }
 
@@ -298,7 +298,6 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
     // TODO: Exercise for the reader - how would you do this in a way
     // that sacled gracefully to hundreds of asset pack files? (or more!)
     u32 AssetCount = 0;
-    u32 TagCount = 0;
 
     for (u32 DestTypeID = 0; DestTypeID < Asset_Count; ++DestTypeID) {
         asset_type *DestType = Assets->AssetTypes + DestTypeID;
@@ -343,7 +342,7 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
         DestType->OnePastLastAssetIndex = AssetCount;
     }
 
-    Assert(AssetCount == Assets->AssetCount);
+    //Assert(AssetCount == Assets->AssetCount);
 #endif
 
 #if 0
