@@ -44,10 +44,16 @@ struct hha_bitmap {
     r32 AlignPercentage[2];
 };
 
+enum hha_sound_chain {
+    HHASoundChain_None,
+    HHASoundChain_Loop,
+    HHASoundChain_Advance,
+};
+
 struct hha_sound {
     u32 SampleCount;
     u32 ChannelCount;
-    sound_id NextIDToPlay;
+    u32 Chain; // NOTE: hha_sound_chain
 };
 
 struct hha_asset {
