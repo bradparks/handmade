@@ -1006,7 +1006,15 @@ internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin) {
         MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE
     );
 
-    char *WildCard = "*.hha";
+    char *TypeAt = Type;
+    char WildCard[32] = "*.";
+    for (u32 WildCardIndex = 2; WildCardIndex < sizeof(WildCard); ++WildCardIndex) {
+        WildCard[WildCardIndex] = *TypeAt++;
+        if (*TypeAt == 0) {
+            break;
+        }
+    }
+    WildCard[sizeof(WildCard) - 1] = 0;
 
     Win32FileGroup->H.FileCount = 0;
 
@@ -1014,16 +1022,15 @@ internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin) {
     HANDLE FindHandle = FindFirstFileA(WildCard, &FindData);
     while (FindHandle != INVALID_HANDLE_VALUE) {
         ++Win32FileGroup->H.FileCount;
+
         if (!FindNextFileA(FindHandle, &FindData)) {
             break;
         }
     }
 
-    if (FindHandle != INVALID_HANDLE_VALUE) {
-        FindClose(FindHandle);
-    }
+    FindClose(FindHandle);
 
-    Win32FileGroup->FindHandle = FindFirstFileA(WildCard, &FindData);
+    Win32FileGroup->FindHandle = FindFirstFileA(WildCard, &Win32FileGroup->FindData);
 
     return (platform_file_group *)Win32FileGroup;
 }
@@ -1031,9 +1038,8 @@ internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin) {
 internal PLATFORM_GET_ALL_FILES_OF_TYPE_END(Win32GetAllFilesOfTypeEnd) {
     win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)FileGroup;
     if (Win32FileGroup) {
-        if (Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE) {
-            VirtualFree(Win32FileGroup->FindHandle, 0, MEM_RELEASE);
-        }
+        FindClose(Win32FileGroup->FindHandle);
+        VirtualFree(Win32FileGroup, 0, MEM_RELEASE);
     }
 }
 
