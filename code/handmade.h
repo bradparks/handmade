@@ -272,9 +272,16 @@ struct hero_bitmap_ids {
     bitmap_id Torso;
 };
 
+struct particle_cel {
+    real32 Density;
+    v3 VelocityTimesDensity;
+};
+
 struct particle {
+    bitmap_id BitmapID;
     v3 P;
     v3 dP;
+    v3 ddP;
     v4 Color;
     v4 dColor;
 };
@@ -322,8 +329,10 @@ struct game_state {
     audio_state AudioState;
     playing_sound *Music;
 
+#define PARTICLE_CEL_DIM 32
     u32 NextParticle;
     particle Particles[256];
+    particle_cel ParticleCels[PARTICLE_CEL_DIM][PARTICLE_CEL_DIM];
 };
 
 struct task_with_memory {
