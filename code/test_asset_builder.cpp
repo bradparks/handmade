@@ -345,7 +345,7 @@ AddBitmapAsset(game_assets *Assets, char *FileName, r32 AlignPercentageX = 0.5f,
     HHA->FirstTagIndex = Assets->TagCount;
     HHA->OnePastLastTagIndex = HHA->FirstTagIndex;
     HHA->Bitmap.AlignPercentage[0] = AlignPercentageX;
-    HHA->Bitmap.AlignPercentage[1] = AlignPercentageX;
+    HHA->Bitmap.AlignPercentage[1] = AlignPercentageY;
 
     Source->Type = AssetType_Bitmap;
     Source->FileName = FileName;
