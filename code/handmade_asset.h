@@ -4,9 +4,11 @@
 #include "handmade_asset_type_id.h"
 
 struct loaded_sound {
-    uint32 SampleCount;
-    uint32 ChannelCount;
+    // TODO: This could be shruck to 12 bytes if the loaded_bitmap
+    // ever got down that small!
     int16 *Samples[2];
+    u32 SampleCount;
+    u32 ChannelCount;
 };
 
 struct asset_bitmap_info {
@@ -29,10 +31,10 @@ enum asset_state {
 };
 
 struct asset_slot {
-    asset_state State;
+    u32 State;
     union {
-        loaded_bitmap *Bitmap;
-        loaded_sound *Sound;
+        loaded_bitmap Bitmap;
+        loaded_sound Sound;
     };
 };
 
@@ -105,7 +107,7 @@ GetBitmap(game_assets *Assets, bitmap_id ID) {
     loaded_bitmap *Result = 0;
     if (Slot->State >= AssetState_Loaded) {
         CompletePreviousReadsBeforeFutureReads;
-        Result = Slot->Bitmap;
+        Result = &Slot->Bitmap;
     }
 
     return Result;
@@ -119,7 +121,7 @@ GetSound(game_assets *Assets, sound_id ID) {
     loaded_sound *Result = 0;
     if (Slot->State >= AssetState_Loaded) {
         CompletePreviousReadsBeforeFutureReads;
-        Result = Slot->Sound;
+        Result = &Slot->Sound;
     }
 
     return Result;
