@@ -1,9 +1,15 @@
 #include "handmade_platform.h"
 
 #include <SDL2/SDL.h>
+
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <libproc.h>
-#include <sys/mman.h>
+#include <dirent.h>
 
 #include "sdl_handmade.h"
 
@@ -425,6 +431,112 @@ SDLMakeQueue(platform_work_queue *Queue, uint32 ThreadCount) {
     }
 }
 
+struct sdl_platform_file_handle {
+    platform_file_handle H;
+    int FD;
+};
+
+struct sdl_platform_file_group {
+    platform_file_group H;
+    char *Type;
+    DIR *dir;
+};
+
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(SDLGetAllFilesOfTypeBegin) {
+    sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)mmap(
+        0, sizeof(sdl_platform_file_group), PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANON, -1, 0
+    );
+
+    DIR *dir = opendir(".");
+    if (dir != 0) {
+        struct dirent *Entry;
+        while ((Entry = readdir(dir)) != 0) {
+            struct stat FileStat;
+
+            if ((stat(Entry->d_name, &FileStat) != -1) &&
+                ((FileStat.st_mode & S_IFMT) != S_IFDIR))
+            {
+                char *OneBeforeExtension = strrchr(Entry->d_name, '.');
+                if (OneBeforeExtension && strcmp(OneBeforeExtension + 1, Type) == 0) {
+                    ++SDLFileGroup->H.FileCount;
+                }
+            }
+        }
+    }
+
+    closedir(dir);
+
+    SDLFileGroup->Type = Type;
+    SDLFileGroup->dir = opendir(".");
+
+    return (platform_file_group *)SDLFileGroup;
+}
+
+internal PLATFORM_GET_ALL_FILES_OF_TYPE_END(SDLGetAllFilesOfTypeEnd) {
+    sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)FileGroup;
+    if (SDLFileGroup) {
+        if (SDLFileGroup->dir) {
+            closedir(SDLFileGroup->dir);
+        }
+        munmap(SDLFileGroup, sizeof(*SDLFileGroup));
+    }
+}
+
+internal PLATFORM_OPEN_NEXT_FILE(SDLOpenNextFile) {
+    sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)FileGroup;
+    sdl_platform_file_handle *Result = 0;
+
+    if (SDLFileGroup->dir) {
+        for (;;) {
+            struct dirent *Entry = readdir(SDLFileGroup->dir);
+
+            if (Entry) {
+                struct stat FileStat;
+                if ((stat(Entry->d_name, &FileStat) != -1) &&
+                    ((FileStat.st_mode & S_IFMT) != S_IFDIR))
+                {
+                    char *OneBeforeExtension = strrchr(Entry->d_name, '.');
+                    if (OneBeforeExtension && strcmp(OneBeforeExtension + 1, SDLFileGroup->Type) == 0) {
+                        // TODO: If we want, someday, make an actual arena used by Win32
+                        Result = (sdl_platform_file_handle *)mmap(
+                            0, sizeof(sdl_platform_file_handle), PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANON, -1, 0
+                        );
+                        Result->FD = open(Entry->d_name, O_RDONLY);
+                        Result->H.NoErrors = Result->FD != -1;
+                        break;
+                    }
+                }
+            } else {
+                closedir(SDLFileGroup->dir);
+                SDLFileGroup->dir = 0;
+                break;
+            }
+        }
+    }
+
+    return (platform_file_handle *)Result;
+}
+
+internal PLATFORM_FILE_ERROR(SDLFileError) {
+#if HANDMADE_INTERNAL
+    printf("SDL FILE ERROR: %s\n", Message);
+#endif
+    Handle->NoErrors = false;
+}
+
+internal PLATFORM_READ_DATA_FROM_FILE(SDLReadDataFromFile) {
+    if (PlatformNoFileErrors(Source)) {
+        sdl_platform_file_handle *SDLFileHandle = (sdl_platform_file_handle *)Source;
+
+        if (pread(SDLFileHandle->FD, Dest, Size, Offset) != (ssize_t)Size) {
+            SDLFileError(&SDLFileHandle->H, "Read file failed.");
+        }
+    }
+}
+
+
 int main(int argc, char *argv[]) {
     sdl_state SDLState = {};
 
@@ -494,14 +606,22 @@ int main(int argc, char *argv[]) {
 
     game_memory GameMemory = {};
     GameMemory.PermanentStorageSize = Megabytes(64);
-    GameMemory.TransientStorageSize = Gigabytes(1);
+    GameMemory.TransientStorageSize = Gigabytes(256);
     GameMemory.HighPriorityQueue = &HighPriorityQueue;
     GameMemory.LowPriorityQueue = &LowPriorityQueue;
-    GameMemory.PlatformAddEntry = SDLAddEntry;
-    GameMemory.PlatformCompleteAllWork = SDLCompleteAllWork;
-    GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
-    GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
-    GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
+
+    GameMemory.PlatformAPI.AddEntry = SDLAddEntry;
+    GameMemory.PlatformAPI.CompleteAllWork = SDLCompleteAllWork;
+
+    GameMemory.PlatformAPI.GetAllFilesOfTypeBegin = SDLGetAllFilesOfTypeBegin;
+    GameMemory.PlatformAPI.GetAllFilesOfTypeEnd = SDLGetAllFilesOfTypeEnd;
+    GameMemory.PlatformAPI.OpenNextFile = SDLOpenNextFile;
+    GameMemory.PlatformAPI.ReadDataFromFile = SDLReadDataFromFile;
+    GameMemory.PlatformAPI.FileError = SDLFileError;
+
+    GameMemory.PlatformAPI.DEBUGFreeFileMemory = DEBUGPlatformFreeFileMemory;
+    GameMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGPlatformReadEntireFile;
+    GameMemory.PlatformAPI.DEBUGWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
     SDLState.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
 
