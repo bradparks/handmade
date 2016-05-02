@@ -28,6 +28,11 @@ enum asset_state {
     AssetState_Queued,
     AssetState_Loaded,
     AssetState_Locked,
+    AssetState_StateMask = 0xFF,
+
+    AssetState_Sound = 0x1000,
+    AssetState_Bitmap = 0x2000,
+    AssetState_TypeMask = 0xF000,
 };
 
 struct asset_slot {
@@ -52,6 +57,13 @@ struct asset_type {
     uint32 OnePastLastAssetIndex;
 };
 
+struct asset_memory_header {
+    asset_memory_header *Next;
+    asset_memory_header *Prev;
+    u32 SlotIndex;
+    u32 Reserved;
+};
+
 struct asset_file {
     platform_file_handle *Handle;
 
@@ -72,6 +84,10 @@ struct game_assets {
     // TODO: Not thrilled about this back-pointer
     struct transient_state *TranState;
     memory_arena Arena;
+
+    u64 TargetMemoryUsed;
+    u64 TotalMemoryUsed;
+    asset_memory_header LoadedAssetSentinel;
 
     real32 TagRange[Tag_Count];
 
@@ -98,6 +114,19 @@ struct game_assets {
 #endif
 };
 
+inline u32
+GetType(asset_slot *Slot) {
+    u32 Result = Slot->State & AssetState_TypeMask;
+
+    return Result;
+}
+
+inline u32
+GetState(asset_slot *Slot) {
+    u32 Result = Slot->State & AssetState_StateMask;
+
+    return Result;
+}
 
 inline loaded_bitmap *
 GetBitmap(game_assets *Assets, bitmap_id ID) {
@@ -105,7 +134,7 @@ GetBitmap(game_assets *Assets, bitmap_id ID) {
     asset_slot *Slot = Assets->Slots + ID.Value;
 
     loaded_bitmap *Result = 0;
-    if (Slot->State >= AssetState_Loaded) {
+    if (GetState(Slot) >= AssetState_Loaded) {
         CompletePreviousReadsBeforeFutureReads;
         Result = &Slot->Bitmap;
     }
@@ -119,7 +148,7 @@ GetSound(game_assets *Assets, sound_id ID) {
     asset_slot *Slot = Assets->Slots + ID.Value;
 
     loaded_sound *Result = 0;
-    if (Slot->State >= AssetState_Loaded) {
+    if (GetState(Slot) >= AssetState_Loaded) {
         CompletePreviousReadsBeforeFutureReads;
         Result = &Slot->Sound;
     }

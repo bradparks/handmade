@@ -1409,11 +1409,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     TiledRenderGroupToOutput(TranState->HighPriorityQueue, RenderGroup, DrawBuffer);
 
     // TODO: Make sure we hoist the camera undate out to a place where the renderer
+    //
     // can know about the location of the camera at the end of the frame so there isn't
     // a frame of lag in camera updating compared to the hero.
     EndSim(SimRegion, GameState);
     EndTemporaryMemory(SimMemory);
     EndTemporaryMemory(RenderMemory);
+
+    EvictAssetsAsNecessary(TranState->Assets);
 
     CheckArena(&GameState->WorldArena);
     CheckArena(&TranState->TranArena);
