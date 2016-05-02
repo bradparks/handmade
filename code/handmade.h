@@ -6,6 +6,14 @@
  *
  * - Flush all thread queues before we reload game DLL
  *
+ * - Debug code
+ *   - Fonts
+ *   - Logging
+ *   - Diagramming
+ *   - (A LITTLE GUI, but only a little!) Switches / sliders / etc.
+ *   - Draw tile chunks so we can verify things are aligned / in the chunks we wangt them to be in / etc.
+ *   - Thread visualization
+ *
  * - Audio
  *   - FIX CLICKING BUG AT END OF SAMPLES!!!
  *
@@ -21,14 +29,6 @@
  *     - Texture
  *   - Lighting
  *   - Optimization
- *
- * - Debug code
- *   - Fonts
- *   - Logging
- *   - Diagramming
- *   - (A LITTLE GUI, but only a little!) Switches / sliders / etc.
- *   - Draw tile chunks so we can verify things are aligned / in the chunks we wangt them to be in / etc.
- *   - Thread visualization
  *
  * ARCHITECTURE EXPLORATION
  * - Z!

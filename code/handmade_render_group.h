@@ -31,10 +31,10 @@ struct loaded_bitmap {
     void *Memory;
     v2 AlignPercentage;
     r32 WidthOverHeight;
-    s16 Width;
-    s16 Height;
+    s32 Width;
+    s32 Height;
     // TODO: Get rid of pitch!
-    s16 Pitch;
+    s32 Pitch;
 };
 
 struct environment_map {
@@ -124,6 +124,8 @@ struct render_group {
     uint8 *PushBufferBase;
 
     uint32 MissingResourceCount;
+
+    b32 AssetsShouldBeLocked;
 };
 
 void DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,
