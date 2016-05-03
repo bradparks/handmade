@@ -72,15 +72,22 @@ struct asset_file {
     u32 TagBase;
 };
 
-struct asset_group {
-    uint32 FirstTagIndex;
-    uint32 OnePastLastTagIndex;
+enum asset_memory_block_flags {
+    AssetMemory_Used = 0x1,
+};
+
+struct asset_memory_block {
+    asset_memory_block *Prev;
+    asset_memory_block *Next;
+    u64 Flags;
+    memory_index Size;
 };
 
 struct game_assets {
     // TODO: Not thrilled about this back-pointer
     struct transient_state *TranState;
-    memory_arena Arena;
+
+    asset_memory_block MemorySentinel;
 
     u64 TargetMemoryUsed;
     u64 TotalMemoryUsed;
