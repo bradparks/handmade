@@ -536,6 +536,21 @@ internal PLATFORM_READ_DATA_FROM_FILE(SDLReadDataFromFile) {
     }
 }
 
+PLATFORM_ALLOCATE_MEMORY(SDLAllocateMemory) {
+    Size += sizeof(u64);
+    u64 *Base = (u64 *)mmap(0, Size, PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANON, -1, 0);
+    *Base = Size;
+    void *Result = Base + 1;
+    return Result;
+}
+
+PLATFORM_DEALLOCATE_MEMORY(SDLDeallocateMemory) {
+    if (Memory) {
+        u64 *Base = ((u64 *)Memory - 1);
+        munmap(Base, *Base);
+    }
+}
 
 int main(int argc, char *argv[]) {
     sdl_state SDLState = {};
@@ -618,6 +633,9 @@ int main(int argc, char *argv[]) {
     GameMemory.PlatformAPI.OpenNextFile = SDLOpenNextFile;
     GameMemory.PlatformAPI.ReadDataFromFile = SDLReadDataFromFile;
     GameMemory.PlatformAPI.FileError = SDLFileError;
+
+    GameMemory.PlatformAPI.AllocateMemory = SDLAllocateMemory;
+    GameMemory.PlatformAPI.DeallocateMemory = SDLDeallocateMemory;
 
     GameMemory.PlatformAPI.DEBUGFreeFileMemory = DEBUGPlatformFreeFileMemory;
     GameMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGPlatformReadEntireFile;
