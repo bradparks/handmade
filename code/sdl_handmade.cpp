@@ -432,21 +432,22 @@ SDLMakeQueue(platform_work_queue *Queue, uint32 ThreadCount) {
 }
 
 struct sdl_platform_file_handle {
-    platform_file_handle H;
     int FD;
 };
 
 struct sdl_platform_file_group {
-    platform_file_group H;
     char *Type;
     DIR *dir;
 };
 
 internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(SDLGetAllFilesOfTypeBegin) {
+    platform_file_group Result = {};
+
     sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)mmap(
         0, sizeof(sdl_platform_file_group), PROT_READ | PROT_WRITE,
         MAP_PRIVATE | MAP_ANON, -1, 0
     );
+    Result.Platform = SDLFileGroup;
 
     DIR *dir = opendir(".");
     if (dir != 0) {
@@ -459,7 +460,7 @@ internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(SDLGetAllFilesOfTypeBegin) {
             {
                 char *OneBeforeExtension = strrchr(Entry->d_name, '.');
                 if (OneBeforeExtension && strcmp(OneBeforeExtension + 1, Type) == 0) {
-                    ++SDLFileGroup->H.FileCount;
+                    ++Result.FileCount;
                 }
             }
         }
@@ -470,11 +471,11 @@ internal PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(SDLGetAllFilesOfTypeBegin) {
     SDLFileGroup->Type = Type;
     SDLFileGroup->dir = opendir(".");
 
-    return (platform_file_group *)SDLFileGroup;
+    return Result;
 }
 
 internal PLATFORM_GET_ALL_FILES_OF_TYPE_END(SDLGetAllFilesOfTypeEnd) {
-    sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)FileGroup;
+    sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)FileGroup->Platform;
     if (SDLFileGroup) {
         if (SDLFileGroup->dir) {
             closedir(SDLFileGroup->dir);
@@ -484,8 +485,8 @@ internal PLATFORM_GET_ALL_FILES_OF_TYPE_END(SDLGetAllFilesOfTypeEnd) {
 }
 
 internal PLATFORM_OPEN_NEXT_FILE(SDLOpenNextFile) {
-    sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)FileGroup;
-    sdl_platform_file_handle *Result = 0;
+    sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)FileGroup->Platform;
+    platform_file_handle Result = {};
 
     if (SDLFileGroup->dir) {
         for (;;) {
@@ -499,12 +500,13 @@ internal PLATFORM_OPEN_NEXT_FILE(SDLOpenNextFile) {
                     char *OneBeforeExtension = strrchr(Entry->d_name, '.');
                     if (OneBeforeExtension && strcmp(OneBeforeExtension + 1, SDLFileGroup->Type) == 0) {
                         // TODO: If we want, someday, make an actual arena used by Win32
-                        Result = (sdl_platform_file_handle *)mmap(
+                        sdl_platform_file_handle *SDLHandle = (sdl_platform_file_handle *)mmap(
                             0, sizeof(sdl_platform_file_handle), PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANON, -1, 0
                         );
-                        Result->FD = open(Entry->d_name, O_RDONLY);
-                        Result->H.NoErrors = Result->FD != -1;
+                        SDLHandle->FD = open(Entry->d_name, O_RDONLY);
+                        Result.NoErrors = SDLHandle->FD != -1;
+                        Result.Platform = SDLHandle;
                         break;
                     }
                 }
@@ -516,7 +518,7 @@ internal PLATFORM_OPEN_NEXT_FILE(SDLOpenNextFile) {
         }
     }
 
-    return (platform_file_handle *)Result;
+    return Result;
 }
 
 internal PLATFORM_FILE_ERROR(SDLFileError) {
@@ -528,10 +530,10 @@ internal PLATFORM_FILE_ERROR(SDLFileError) {
 
 internal PLATFORM_READ_DATA_FROM_FILE(SDLReadDataFromFile) {
     if (PlatformNoFileErrors(Source)) {
-        sdl_platform_file_handle *SDLFileHandle = (sdl_platform_file_handle *)Source;
+        sdl_platform_file_handle *SDLFileHandle = (sdl_platform_file_handle *)Source->Platform;
 
         if (pread(SDLFileHandle->FD, Dest, Size, Offset) != (ssize_t)Size) {
-            SDLFileError(&SDLFileHandle->H, "Read file failed.");
+            SDLFileError(Source, "Read file failed.");
         }
     }
 }
