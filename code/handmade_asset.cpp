@@ -134,7 +134,6 @@ AcquireAssetMemory(game_assets *Assets, memory_index Size) {
                 asset *Asset = Assets->Assets + Header->AssetIndex;
                 if (GetState(Asset) >= AssetState_Loaded) {
                     u32 AssetIndex = Header->AssetIndex;
-                    asset *Asset = Assets->Assets + AssetIndex;
 
                     Assert(GetState(Asset) == AssetState_Loaded);
                     Assert(!IsLocked(Asset));
@@ -429,7 +428,7 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
     Assets->AssetCount = 1;
 
     {
-        platform_file_group FileGroup = Platform.GetAllFilesOfTypeBegin("hha");
+        platform_file_group FileGroup = Platform.GetAllFilesOfTypeBegin(PlatformFileType_AssetFile);
         Assets->FileCount = FileGroup.FileCount;
         Assets->Files = PushArray(Arena, Assets->FileCount, asset_file);
         for (u32 FileIndex = 0; FileIndex < Assets->FileCount; ++FileIndex) {
