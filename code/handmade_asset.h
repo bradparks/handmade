@@ -1,8 +1,6 @@
 #ifndef HANDMADE_ASSET_H
 #define HANDMADE_ASSET_H
 
-#include "handmade_asset_type_id.h"
-
 struct loaded_sound {
     // TODO: This could be shruck to 12 bytes if the loaded_bitmap
     // ever got down that small!

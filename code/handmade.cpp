@@ -410,6 +410,9 @@ internal loaded_bitmap
 MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZero = true) {
     loaded_bitmap Result = {};
 
+    Result.AlignPercentage = V2(0.5f, 0.5f);
+    Result.WidthOverHeight = SafeRatio1((r32)Width, (r32)Height);
+
     Result.Width = Width;
     Result.Height = Height;
     Result.Pitch = Result.Width * BITMAP_BYTES_PER_PIXEL;
@@ -1177,7 +1180,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                                              RandomBetween(&GameState->EffectsEntropy, 0.75f, 1.0f),
                                              1.0f);
                         Particle->dColor = V4(0, 0, 0, -0.25f);
-                        Particle->BitmapID = GetRandomBitmapFrom(TranState->Assets, Asset_Head, &GameState->EffectsEntropy);
+
+                        char Notings[] = "NOTINGS";
+                        MatchVector.E[Tag_UnicodeCodepoint] = (r32)Notings[RandomChoice(&GameState->EffectsEntropy, ArrayCount(Notings) - 1)];
+                        WeightVector.E[Tag_UnicodeCodepoint] = 1.0f;
+
+                        Particle->BitmapID = GetBestMatchBitmapFrom(TranState->Assets, Asset_Font,
+                                                                    &MatchVector, &WeightVector);
+
+                        //Particle->BitmapID = GetRandomBitmapFrom(TranState->Assets, Asset_Font, &GameState->EffectsEntropy);
                     }
 
                     // NOTE: Particle system test
@@ -1269,7 +1280,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                         }
 
                         // NOTE: Render the particle
-                        PushBitmap(RenderGroup, Particle->BitmapID, 1.0f, Particle->P, Color);
+                        PushBitmap(RenderGroup, Particle->BitmapID, 0.2f, Particle->P, Color);
                     }
 
                 } break;

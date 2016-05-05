@@ -1,6 +1,55 @@
 #ifndef HANDMADE_FILE_FORMAT_H
 #define HANDMADE_FILE_FORMAT_H
 
+enum asset_tag_id {
+    Tag_Smoothness,
+    Tag_Flatness,
+    Tag_FacingDirection, // NOTE: Angle in radians off of due right
+    Tag_UnicodeCodepoint,
+
+    Tag_Count,
+};
+
+enum asset_type_id {
+    Asset_None,
+
+    //
+    // NOTE: Bitmaps!
+    //
+
+    Asset_Shadow,
+    Asset_Tree,
+    Asset_Sword,
+    Asset_Rock,
+
+    Asset_Grass,
+    Asset_Tuft,
+    Asset_Stone,
+
+    Asset_Head,
+    Asset_Cape,
+    Asset_Torso,
+
+    Asset_Font,
+
+    //
+    // NOTE: Sounds!
+    //
+
+    Asset_Bloop,
+    Asset_Crack,
+    Asset_Drop,
+    Asset_Glide,
+    Asset_Music,
+    Asset_Puhp,
+
+    //
+    //
+    //
+
+    Asset_Count,
+};
+
 #define HHA_CODE(a, b, c, d) (((uint32)(a) << 0) | ((uint32)(b) << 8) | ((uint32)(c) << 16) | ((uint32)(d) << 24))
 
 struct bitmap_id {
