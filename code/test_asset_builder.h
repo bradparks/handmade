@@ -23,6 +23,8 @@ struct asset_source {
         u32 FirstSampleIndex;
         u32 Codepoint;
     };
+
+    char *FontName;
 };
 
 #define VERY_LARGE_NUMBER 4096
