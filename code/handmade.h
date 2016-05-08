@@ -17,9 +17,6 @@
  * - Audio
  *   - FIX CLICKING BUG AT END OF SAMPLES!!!
  *
- * - Asset streaming
- *   - Memory management
- *
  * - Particle systems
  *
  * - Rendering

@@ -126,6 +126,7 @@ struct render_group {
 
     uint32 MissingResourceCount;
     b32 RendersInBackground;
+    b32 InsideRender;
 };
 
 void DrawRectangleQuickly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,
