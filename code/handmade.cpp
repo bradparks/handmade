@@ -558,7 +558,7 @@ global_variable r32 FontScale;
 
 internal void
 DEBUGReset(u32 Width, u32 Height) {
-    FontScale = 20.0f;
+    FontScale = 1.0f;
     Orthographic(DEBUGRenderGroup, Width, Height, 1.0f);
     AtY = 0.5f * Height - 0.5f * FontScale;
     LeftEdge = -0.5f * Width + 0.5f * FontScale;
@@ -575,18 +575,21 @@ DEBUGTextLine(char *String) {
 
         r32 AtX = LeftEdge;
         for (char *At = String; *At; ++At) {
+            r32 CharDim = FontScale * 10.0f;
             if (*At != ' ') {
                 MatchVector.E[Tag_UnicodeCodepoint] = *At;
                 // TODO: This is too slow for text, at the moment!
                 bitmap_id BitmapID = GetBestMatchBitmapFrom(RenderGroup->Assets, Asset_Font,
                                                             &MatchVector, &WeightVector);
+                hha_bitmap *Info = GetBitmapInfo(RenderGroup->Assets, BitmapID);
+                CharDim = FontScale * (r32)Info->Dim[0];
 
-                PushBitmap(RenderGroup, BitmapID, FontScale, V3(AtX, AtY, 0), V4(1, 1, 1, 1));
+                PushBitmap(RenderGroup, BitmapID, FontScale * (r32)Info->Dim[1], V3(AtX, AtY, 0), V4(1, 1, 1, 1));
             }
-            AtX += 1.2f * FontScale;
+            AtX += CharDim;
         }
 
-        AtY -= FontScale;
+        AtY -= 1.2f * 80.0f * FontScale;
     }
 }
 
@@ -834,7 +837,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
         DEBUGRenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(16), false);
 
-        GameState->Music = PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Music));
+        //GameState->Music = PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Music));
 
         // TODO: Pick a real number here!
         TranState->GroundBufferCount = 128;
@@ -1225,7 +1228,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                     PushBitmap(RenderGroup, HeroBitmaps.Cape, HeroSizeC * 1.2f, V3(0, 0, 0));
                     PushBitmap(RenderGroup, HeroBitmaps.Head, HeroSizeC * 1.2f, V3(0, 0, 0));
                     DrawHitPoints(Entity, RenderGroup);
-
+#if 0
                     for (u32 ParticleSpawnIndex = 0;
                          ParticleSpawnIndex < 3;
                          ++ParticleSpawnIndex)
@@ -1345,7 +1348,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                         // NOTE: Render the particle
                         PushBitmap(RenderGroup, Particle->BitmapID, 1.0f, Particle->P, Color);
                     }
-
+#endif
                 } break;
 
                 case EntityType_Wall: {

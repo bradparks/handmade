@@ -335,14 +335,16 @@ LoadWAV(char *FileName, uint32 SectionFirstSampleIndex, uint32 SectionSampleCoun
 }
 
 internal loaded_bitmap
-LoadGlyphBitmap(char *FileName, char *FontName, u32 Codepoint) {
+LoadGlyphBitmap(char *FileName, char *FontName, u32 Codepoint, hha_asset *Asset) {
     loaded_bitmap Result = {};
 
 #if USE_FONTS_FROM_WINDOWS
     int MaxWidth = 1024;
     int MaxHeight = 1024;
+    // TODO: These won't work for extracting multiple fonts
     static VOID *Bits;
     static HDC DeviceContext = 0;
+    static TEXTMETRIC TextMetric;
     if (!DeviceContext) {
         AddFontResourceEx(FileName, FR_PRIVATE, 0);
 
@@ -381,7 +383,6 @@ LoadGlyphBitmap(char *FileName, char *FontName, u32 Codepoint) {
         SelectObject(DeviceContext, Font);
         SetBkColor(DeviceContext, RGB(0, 0, 0));
 
-        TEXTMETRIC TextMetric;
         GetTextMetrics(DeviceContext, &TextMetric);
     }
 
@@ -394,10 +395,10 @@ LoadGlyphBitmap(char *FileName, char *FontName, u32 Codepoint) {
     SetTextColor(DeviceContext, RGB(255, 255, 255));
     TextOutW(DeviceContext, 0, 0, &CheesePoint, 1);
 
-    int Width = Size.cx;
-    if (Width > MaxWidth) { Width = MaxWidth; }
-    int Height = Size.cy;
-    if (Height > MaxHeight) { Height = MaxHeight; }
+    int BoundWidth = Size.cx;
+    if (BoundWidth > MaxWidth) { BoundWidth = MaxWidth; }
+    int BoundHeight = Size.cy;
+    if (BoundHeight > MaxHeight) { BoundHeight = MaxHeight; }
 
     s32 MinX = 10000;
     s32 MinY = 10000;
@@ -405,10 +406,9 @@ LoadGlyphBitmap(char *FileName, char *FontName, u32 Codepoint) {
     s32 MaxY = -10000;
 
     u32 *Row = (u32 *)Bits + (MaxHeight - 1) * MaxWidth;
-
-    for (s32 Y = 0; Y < Height; ++Y) {
+    for (s32 Y = 0; Y < BoundHeight; ++Y) {
         u32 *P = Row;
-        for (s32 X = 0; X < Width; ++X) {
+        for (s32 X = 0; X < BoundWidth; ++X) {
 #if 0
             COLORREF Pixel = GetPixel(DeviceContext, X, Y);
             Assert(Pixel == *P);
@@ -428,16 +428,8 @@ LoadGlyphBitmap(char *FileName, char *FontName, u32 Codepoint) {
     }
 
     if (MinX <= MaxX) {
-#if 0
-        // TODO Apron
-        --MinX;
-        --MinY;
-        ++MaxX;
-        ++MaxY;
-#endif
-
-        Width = (MaxX - MinX) + 1;
-        Height = (MaxY - MinY) + 1;
+        int Width = (MaxX - MinX) + 1;
+        int Height = (MaxY - MinY) + 1;
 
         Result.Width = Width + 2;
         Result.Height = Height + 2;
@@ -458,18 +450,27 @@ LoadGlyphBitmap(char *FileName, char *FontName, u32 Codepoint) {
 #else
                 u32 Pixel = *Source;
 #endif
-                u8 Gray = (u8)(Pixel & 0xFF);
-                u8 Alpha = Gray;
-                *Dest++ = ((Alpha << 24) |
-                           (Gray << 16) |
-                           (Gray <<  8) |
-                           (Gray <<  0));
+
+
+                r32 Gray = (r32)(Pixel & 0xFF);
+                v4 Texel = {255.0f, 255.0f, 255.0f, Gray};
+                Texel = SRGB255ToLinear1(Texel);
+                Texel.rgb *= Texel.a;
+                Texel = Linear1ToSRGB255(Texel);
+
+                *Dest++ = (((u32)(Texel.a + 0.5f) << 24) |
+                           ((u32)(Texel.r + 0.5f) << 16) |
+                           ((u32)(Texel.g + 0.5f) <<  8) |
+                           ((u32)(Texel.b + 0.5f) <<  0));
 
                 ++Source;
             }
             DestRow -= Result.Pitch;
             SourceRow -= MaxWidth;
         }
+
+        Asset->Bitmap.AlignPercentage[0] = 1.0f / (r32)Result.Width;
+        Asset->Bitmap.AlignPercentage[1] = (1.0f + MaxY - (BoundHeight - TextMetric.tmDescent)) / (r32)Result.Height;
     }
 #else
     entire_file TTFFile = ReadEntireFile(FileName);
@@ -652,7 +653,8 @@ WriteHHA(game_assets *Assets, char *FileName) {
             } else {
                 loaded_bitmap Bitmap;
                 if (Source->Type == AssetType_Font) {
-                    Bitmap = LoadGlyphBitmap(Source->FileName, Source->FontName, Source->Codepoint);
+                    Bitmap = LoadGlyphBitmap(Source->FileName, Source->FontName, Source->Codepoint,
+                                             Dest);
                 } else {
                     Assert(Source->Type == AssetType_Bitmap);
                     Bitmap = LoadBMP(Source->FileName);
