@@ -9,6 +9,11 @@ struct loaded_sound {
     u32 ChannelCount;
 };
 
+struct loaded_font {
+    bitmap_id *CodePoints;
+    r32 *HorizontalAdvance;
+};
+
 // TODO: Stramling this, by using header pointer as an indicator of unloaded status?
 enum asset_state {
     AssetState_Unloaded,
@@ -26,6 +31,7 @@ struct asset_memory_header {
     union {
         loaded_bitmap Bitmap;
         loaded_sound Sound;
+        loaded_font Font;
     };
 };
 
@@ -186,6 +192,23 @@ inline hha_sound *
 GetSoundInfo(game_assets *Assets, sound_id ID) {
     Assert(ID.Value <= Assets->AssetCount);
     hha_sound *Result = &Assets->Assets[ID.Value].HHA.Sound;
+
+    return Result;
+}
+
+inline loaded_font *
+GetFont(game_assets *Assets, font_id ID, u32 GenerationID) {
+    asset_memory_header *Header = GetAsset(Assets, ID.Value, GenerationID);
+
+    loaded_font *Result = Header ? &Header->Font : 0;
+
+    return Result;
+}
+
+inline hha_font *
+GetFontInfo(game_assets *Assets, font_id ID) {
+    Assert(ID.Value <= Assets->AssetCount);
+    hha_font *Result = &Assets->Assets[ID.Value].HHA.Font;
 
     return Result;
 }

@@ -571,25 +571,33 @@ DEBUGTextLine(char *String) {
 
         asset_vector MatchVector = {};
         asset_vector WeightVector = {};
-        WeightVector.E[Tag_UnicodeCodepoint] = 1.0f;
+        font_id FontID = GetBestMatchFontFrom(RenderGroup->Assets, Asset_Font,
+                                              &MatchVector, &WeightVector);
+        loaded_font *Font = GetFont(RenderGroup->Assets, FontID, RenderGroup->GenerationID);
 
-        r32 AtX = LeftEdge;
-        for (char *At = String; *At; ++At) {
-            r32 CharDim = FontScale * 10.0f;
-            if (*At != ' ') {
-                MatchVector.E[Tag_UnicodeCodepoint] = *At;
-                // TODO: This is too slow for text, at the moment!
-                bitmap_id BitmapID = GetBestMatchBitmapFrom(RenderGroup->Assets, Asset_Font,
-                                                            &MatchVector, &WeightVector);
-                hha_bitmap *Info = GetBitmapInfo(RenderGroup->Assets, BitmapID);
-                CharDim = FontScale * (r32)Info->Dim[0];
+        if (Font) {
+            hha_font *Info = GetFontInfo(RenderGroup->Assets, FontID);
+            u32 PrevCodePoint = 0;
+            r32 AtX = LeftEdge;
 
-                PushBitmap(RenderGroup, BitmapID, FontScale * (r32)Info->Dim[1], V3(AtX, AtY, 0), V4(1, 1, 1, 1));
+            for (char *At = String; *At; ++At) {
+                u32 CodePoint = *At;
+                r32 AdvanceX = FontScale * GetHorizontalAdvanceForPair(Info, Font, PrevCodePoint, CodePoint);
+                AtX += AdvanceX;
+
+                if (CodePoint != ' ') {
+                    bitmap_id BitmapID = GetBitmapForGlyph(RenderGroup->Assets, Info, Font, CodePoint);
+                    hha_bitmap *BitmapInfo = GetBitmapInfo(RenderGroup->Assets, BitmapID);
+
+                    PushBitmap(RenderGroup, BitmapID, FontScale * (r32)BitmapInfo->Dim[1], V3(AtX, AtY, 0), V4(1, 1, 1, 1));
+                }
+
+                PrevCodePoint = CodePoint;
             }
-            AtX += CharDim;
-        }
 
-        AtY -= 1.2f * 80.0f * FontScale;
+            AtY -= GetLineAdvanceFor(Info, Font) * FontScale;
+        } else {
+        }
     }
 }
 
