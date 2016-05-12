@@ -12,6 +12,7 @@ struct loaded_sound {
 struct loaded_font {
     bitmap_id *CodePoints;
     r32 *HorizontalAdvance;
+    u32 BitmapIDOffset;
 };
 
 // TODO: Stramling this, by using header pointer as an indicator of unloaded status?
@@ -61,6 +62,7 @@ struct asset_file {
     hha_asset_type *AssetTypeArray;
 
     u32 TagBase;
+    s32 FontBitmapIDOffset;
 };
 
 enum asset_memory_block_flags {
