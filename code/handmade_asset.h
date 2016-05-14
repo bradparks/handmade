@@ -233,6 +233,8 @@ internal void LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate);
 inline void PrefetchBitmap(game_assets *Assets, bitmap_id ID) { LoadBitmap(Assets, ID, false); }
 internal void LoadSound(game_assets *Assets, sound_id ID);
 inline void PrefetchSound(game_assets *Assets, sound_id ID) { LoadSound(Assets, ID); }
+internal void LoadFont(game_assets *Assets, font_id ID, b32 Immediate);
+inline void PrefetchFont(game_assets *Assets, font_id ID, b32 Immediate) { LoadFont(Assets, ID, false); }
 
 inline sound_id
 GetNextSoundInChain(game_assets *Assets, sound_id ID) {
