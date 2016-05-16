@@ -550,6 +550,14 @@ MakePyramidNormalMap(loaded_bitmap *Bitmap, real32 Roughness) {
     }
 }
 
+/*
+ * NOTE: Kanji owl codepoints
+ * 0x5c0f
+ * 0x8033
+ * 0x6728
+ * 0x514e
+ */
+
 // TODO: Fix this for looped live code editing
 global_variable render_group *DEBUGRenderGroup;
 global_variable r32 LeftEdge;
