@@ -346,10 +346,12 @@ LoadFont(char *FileName, char *FontName) {
     Font->HorizontalAdvance = (r32 *)malloc(HorizontalAdvanceSize);
     memset(Font->HorizontalAdvance, 0, HorizontalAdvanceSize);
 
+    Font->OnePastHigestCodePoint = 0;
+
     // NOTE: Reserve space for the null glyph
     Font->GlyphCount = 1;
     Font->Glyphs[0].UnicodeCodePoint = 0;
-    Font->Glyphs[0].BitmapID = 0;
+    Font->Glyphs[0].BitmapID.Value = 0;
 
     return Font;
 }
@@ -643,6 +645,10 @@ AddCharacterAsset(game_assets *Assets, loaded_font *Font, u32 CodePoint) {
     Glyph->BitmapID = Result;
     Font->GlyphIndexFromCodePont[CodePoint] = GlyphIndex;
 
+    if (Font->OnePastHigestCodePoint <= CodePoint) {
+        Font->OnePastHigestCodePoint = CodePoint + 1;
+    }
+
     return Result;
 }
 
@@ -662,6 +668,7 @@ AddSoundAsset(game_assets *Assets, char *FileName, u32 FirstSampleIndex = 0, u32
 internal font_id
 AddFontAsset(game_assets *Assets, loaded_font *Font) {
     added_asset Asset = AddAsset(Assets);
+    Asset.HHA->Font.OnePastHigestCodePoint = Font->OnePastHigestCodePoint;
     Asset.HHA->Font.GlyphCount = Font->GlyphCount;
     Asset.HHA->Font.AscenderHeight = (r32)Font->TextMetric.tmAscent;
     Asset.HHA->Font.DescenderHeight = (r32)Font->TextMetric.tmDescent;

@@ -198,6 +198,7 @@ SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size, memory_in
 }
 
 #define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
+#define ZeroArray(Count, Pointer) ZeroSize((Count)*sizeof((Pointer)[0]), Pointer)
 inline void
 ZeroSize(memory_index Size, void *Ptr) {
     // TODO: Check this guy for performance

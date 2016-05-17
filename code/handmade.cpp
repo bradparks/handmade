@@ -579,6 +579,26 @@ DEBUGReset(game_assets *Assets, u32 Width, u32 Height) {
     AtY = 0.5f * Height - FontScale * GetStartingBaselineY(Info);
 }
 
+inline b32
+IsHex(char Char) {
+    b32 Result = ((Char >= '0' && Char <= '9') ||
+                  (Char >= 'A' && Char <= 'F'));
+    return Result;
+}
+
+inline u32
+GetHex(char Char) {
+    u32 Result = 0;
+
+    if (Char >= '0' && Char <= '9') {
+        Result = Char - '0';
+    } else if (Char >= 'A' && Char <= 'F') {
+        Result = 0xA + (Char - 'A');
+    }
+
+    return Result;
+}
+
 internal void
 DEBUGTextLine(char *String) {
     if (DEBUGRenderGroup) {
@@ -593,6 +613,19 @@ DEBUGTextLine(char *String) {
 
             for (char *At = String; *At; ++At) {
                 u32 CodePoint = *At;
+
+                if (
+                    At[0] == '\\' &&
+                    IsHex(At[1]) && IsHex(At[2]) &&
+                    IsHex(At[3]) && IsHex(At[4])
+                ) {
+                    CodePoint = (GetHex(At[1]) << 12 |
+                                 GetHex(At[2]) <<  8 |
+                                 GetHex(At[3]) <<  4 |
+                                 GetHex(At[4]) <<  0);
+                    At += 4;
+                }
+
                 r32 AdvanceX = FontScale * GetHorizontalAdvanceForPair(Info, Font, PrevCodePoint, CodePoint);
                 AtX += AdvanceX;
 
@@ -622,6 +655,7 @@ OverlayCycleCounters(game_memory *Memory) {
         "DrawRectangleQuickly",
     };
 
+    DEBUGTextLine("\\5C0F\\8033\\6728\\514E");
     DEBUGTextLine("DEBUG CYCLE COUNTS:");
 
     for (uint32 CounterIndex = 0; CounterIndex < ArrayCount(Memory->Counters); ++CounterIndex) {
@@ -638,6 +672,8 @@ OverlayCycleCounters(game_memory *Memory) {
 #endif
         }
     }
+
+    DEBUGTextLine("AVA WA Ta");
 }
 
 #if HANDMADE_INTERNAL

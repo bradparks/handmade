@@ -59,6 +59,8 @@ struct loaded_font {
     u32 GlyphCount;
 
     u32 *GlyphIndexFromCodePont;
+
+    u32 OnePastHigestCodePoint;
 };
 
 enum asset_type {
