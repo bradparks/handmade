@@ -80,6 +80,9 @@
  */
 
 #include "handmade_platform.h"
+#include "handmade_intrinsics.h"
+#include "handmade_math.h"
+#include "handmade_debug.h"
 
 #define Minimum(A, B) ((A < B) ? (A) : (B))
 #define Maximum(A, B) ((A > B) ? (A) : (B))
@@ -219,8 +222,6 @@ Copy(memory_index Size, void *SourceInit, void *DestInit) {
 
 }
 
-#include "handmade_intrinsics.h"
-#include "handmade_math.h"
 #include "handmade_world.h"
 #include "handmade_sim_region.h"
 #include "handmade_entity.h"
