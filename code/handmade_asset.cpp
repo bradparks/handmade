@@ -520,6 +520,8 @@ GetRandomSoundFrom(game_assets *Assets, asset_type_id TypeID, random_series *Ser
 
 internal game_assets *
 AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *TranState) {
+    TIMED_BLOCK();
+
     game_assets *Assets = PushStruct(Arena, game_assets);
 
     Assets->NextGenerationID = 0;

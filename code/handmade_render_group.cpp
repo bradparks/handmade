@@ -159,7 +159,7 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                     environment_map *Middle,
                     environment_map *Bottom)
 {
-    BEGIN_TIMED_BLOCK(DrawRectangleSlowly);
+    TIMED_BLOCK();
 
     // TODO: Remove this
     real32 PixelsToMeters = 42.0f;
@@ -226,7 +226,7 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
                   XMin * BITMAP_BYTES_PER_PIXEL +
                   YMin * Buffer->Pitch);
 
-    BEGIN_TIMED_BLOCK(ProcessPixel);
+    TIMED_BLOCK((XMax - XMin + 1) * (YMax - YMin + 1));
     for (int Y = YMin; Y <= YMax; ++Y) {
         uint32 *Pixel = (uint32 *) Row;
         for (int X = XMin; X <= XMax; ++X) {
@@ -367,9 +367,6 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Col
         }
         Row += Buffer->Pitch;
     }
-    END_TIMED_BLOCK_COUNTED(ProcessPixel, (XMax - XMin + 1) * (YMax - YMin + 1));
-
-    END_TIMED_BLOCK(DrawRectangleSlowly);
 }
 
 internal void
@@ -475,7 +472,7 @@ internal void
 RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
                     rectangle2i ClipRect, bool Even)
 {
-    BEGIN_TIMED_BLOCK(RenderGroupToOutput);
+    TIMED_BLOCK();
 
     for (uint32 BaseAddress = 0;
          BaseAddress < RenderGroup->PushBufferSize;
@@ -581,8 +578,6 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget,
         }
 
     }
-
-    END_TIMED_BLOCK(RenderGroupToOutput);
 }
 
 struct tile_render_work {

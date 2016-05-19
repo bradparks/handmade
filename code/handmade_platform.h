@@ -176,33 +176,7 @@ typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
 #define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(const char *Filename, uint32 MemorySize, void *Memory)
 typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
 
-// TODO: Give these things names soon!
-enum {
-    /* 0 */ DebugCycleCounter_GameUpdateAndRender,
-    /* 1 */ DebugCycleCounter_RenderGroupToOutput,
-    /* 2 */ DebugCycleCounter_DrawRectangleSlowly,
-    /* 3 */ DebugCycleCounter_ProcessPixel,
-    /* 5 */ DebugCycleCounter_DrawRectangleQuickly,
-    DebugCycleCounter_Count,
-};
-
-typedef struct debug_cycle_count {
-    uint64 CycleCount;
-    uint32 HitCount;
-} debug_cycle_count;
-
 extern struct game_memory *DebugGlobalMemory;
-
-// TODO: Clamp END_TIMED_BLOCK_COUNTED so that if the calc is wrong, it won't overflow?
-#if _MSC_VER
-#define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = __rdtsc()
-#define END_TIMED_BLOCK(ID) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID; ++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount
-#define END_TIMED_BLOCK_COUNTED(ID, Count) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID; DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount += (Count)
-#else
-#define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = _rdtsc()
-#define END_TIMED_BLOCK(ID) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += _rdtsc() - StartCycleCount##ID; ++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount
-#define END_TIMED_BLOCK_COUNTED(ID, Count) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += _rdtsc() - StartCycleCount##ID; DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount += (Count)
-#endif
 
 #endif
 
@@ -349,9 +323,6 @@ typedef struct game_memory {
     platform_work_queue *LowPriorityQueue;
 
     platform_api PlatformAPI;
-#if HANDMADE_INTERNAL
-    debug_cycle_count Counters[DebugCycleCounter_Count];
-#endif
 } game_memory;
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer)

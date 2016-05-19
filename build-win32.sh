@@ -12,8 +12,8 @@ echo WAITING FOR PDB > lock.tmp
 # Asset file builder build
 cl $CommonCompilerFlags -D_CRT_SECURE_NO_WARNINGS ../code/test_asset_builder.cpp /link $CommonLinkerFlags
 
-cl $CommonCompilerFlags -O2 -c ../code/handmade_optimized.cpp -Fohandmade_optimized.obj -LD
-cl $CommonCompilerFlags ../code/handmade.cpp handmade_optimized.obj -Fmhandmade.map -LD /link -incremental:no -opt:ref -PDB:handmade_$RANDOM.pdb -EXPORT:GameGetSoundSamples -EXPORT:GameUpdateAndRender
+cl $CommonCompilerFlags -DDebugRecordArray=DebugRecords_Optimized -O2 -c ../code/handmade_optimized.cpp -Fohandmade_optimized.obj -LD
+cl $CommonCompilerFlags -DDebugRecordArray=DebugRecords_Main ../code/handmade.cpp handmade_optimized.obj -Fmhandmade.map -LD /link -incremental:no -opt:ref -PDB:handmade_$RANDOM.pdb -EXPORT:GameGetSoundSamples -EXPORT:GameUpdateAndRender
 
 rm lock.tmp
 cl $CommonCompilerFlags ../code/win32_handmade.cpp -Fmwin32_handmade.map /link $CommonLinkerFlags

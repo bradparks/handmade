@@ -782,6 +782,7 @@ Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End) {
     return ((real32) (End.QuadPart - Start.QuadPart) / (real32) GlobalPerfCountFrequency);
 }
 
+#if 0
 internal void
 HandleDebugCycleCounters(game_memory *Memory) {
 #if HANDMADE_INTERNAL
@@ -800,6 +801,7 @@ HandleDebugCycleCounters(game_memory *Memory) {
     }
 #endif
 }
+#endif
 
 internal void
 Win32DebugDrawVertical(win32_offscreen_buffer *BackBuffer,
@@ -1531,7 +1533,7 @@ WinMain(HINSTANCE Instance,
                         }
                         if (Game.UpdateAndRender) {
                             Game.UpdateAndRender(&GameMemory, NewInput, &Buffer);
-                            HandleDebugCycleCounters(&GameMemory);
+                            //HandleDebugCycleCounters(&GameMemory);
                         }
 
                         LARGE_INTEGER AudioWallClock = Win32GetWallClock();
