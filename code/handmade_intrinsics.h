@@ -13,6 +13,15 @@ inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, ui
     uint32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
     return Result;
 }
+inline u64 AtomicExchangeU64(u64 volatile *Value, u64 New) {
+    u64 Result = _InterlockedExchange64((__int64 *)Value, New);
+    return Result;
+}
+inline u64 AtomicAddU64(u64 volatile *Value, u64 Addend) {
+    // NOTE: Returns the original value _priori_ to adding
+    u64 Result = _InterlockedExchangeAdd64((__int64 *)Value, Addend);
+    return Result;
+}
 #elif HANDMADE_SDL
 #include <SDL2/SDL.h>
 #define CompletePreviousReadsBeforeFutureReads SDL_CompilerBarrier()

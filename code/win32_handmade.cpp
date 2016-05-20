@@ -1313,7 +1313,7 @@ WinMain(HINSTANCE Instance,
                 // on record start - find out what Windodws is doing and if
                 // we can spped up / defer some of that processing.
 
-                Win32GetInputFileLocation(&Win32State, false, ReplayIndex,
+                Win32GetInputFileLocation(&Win32State, false, (int)ReplayIndex,
                                           sizeof(ReplayBuffer->FileName),
                                           ReplayBuffer->FileName);
 

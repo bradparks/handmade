@@ -308,6 +308,8 @@ struct fill_ground_chunk_work {
 };
 
 internal PLATFORM_WORK_QUEUE_CALLBACK(FillGroundChunkWork) {
+    TIMED_BLOCK();
+
     fill_ground_chunk_work *Work = (fill_ground_chunk_work *)Data;
 
     loaded_bitmap *Buffer = &Work->GroundBuffer->Bitmap;
@@ -573,6 +575,8 @@ DEBUGReset(game_assets *Assets, u32 Width, u32 Height) {
 
     asset_vector MatchVector = {};
     asset_vector WeightVector = {};
+    MatchVector.E[Tag_FontType] = (r32)FontType_Debug;
+    WeightVector.E[Tag_FontType] = 1.0f;
     FontID = GetBestMatchFontFrom(Assets, Asset_Font, &MatchVector, &WeightVector);
 
     FontScale = 1.0f;
@@ -1540,33 +1544,47 @@ extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples) {
                         &TranState->TranArena);
 }
 
-debug_record DebugRecordArray[__COUNTER__];
+debug_record DebugRecords_Main[__COUNTER__];
 
+extern u32 const DebugRecords_Optimized_Count;
+debug_record DebugRecords_Optimized[];
+
+// TODO: Stop using stdio!
 #include <stdio.h>
+
+internal void
+OutputDebugRecords(u32 CounterCount, debug_record *Counters) {
+    for (uint32 CounterIndex = 0; CounterIndex < CounterCount; ++CounterIndex) {
+        debug_record *Counter = Counters + CounterIndex;
+
+        u64 HitCount_CycleCount = AtomicExchangeU64(&Counter->HitCount_CycleCount, 0);
+        u32 HitCount = (u32)(HitCount_CycleCount >> 32);
+        u32 CycleCount = (u32)(HitCount_CycleCount & 0xFFFFFFFF);
+
+        if (HitCount) {
+#if 1
+            char buf[512];
+            snprintf(buf, 512, "%s(%u): %ucy %uh %ucy/h\n",
+                     Counter->FunctionName,
+                     Counter->LineNumber,
+                     CycleCount,
+                     HitCount,
+                     CycleCount / HitCount);
+            DEBUGTextLine(buf);
+#else
+            DEBUGTextLine(Counter->FileName);
+#endif
+        }
+    }
+}
 
 internal void
 OverlayCycleCounters(game_memory *Memory) {
     //DEBUGTextLine("\\5C0F\\8033\\6728\\514E");
     DEBUGTextLine("DEBUG CYCLE COUNTS:");
 
-    for (uint32 CounterIndex = 0; CounterIndex < ArrayCount(DebugRecords_Main); ++CounterIndex) {
-        debug_record *Counter = DebugRecords_Main + CounterIndex;
-        if (Counter->HitCount) {
-#if 1
-            char buf[512];
-            snprintf(buf, 512, "  %s: %llucy %uh %llucy/h\n",
-                     Counter->FunctionName,
-                     Counter->CycleCount,
-                     Counter->HitCount,
-                     Counter->CycleCount / Counter->HitCount);
-            DEBUGTextLine(buf);
-            Counter->HitCount = 0;
-            Counter->CycleCount = 0;
-#else
-            DEBUGTextLine(Counter->FileName);
-#endif
-        }
-    }
+    OutputDebugRecords(DebugRecords_Optimized_Count, DebugRecords_Optimized);
+    OutputDebugRecords(ArrayCount(DebugRecords_Main), DebugRecords_Main);
 
     //DEBUGTextLine("AVA WA Ta");
 }

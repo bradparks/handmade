@@ -1,11 +1,17 @@
 #ifndef HANDMADE_FILE_FORMAT_H
 #define HANDMADE_FILE_FORMAT_H
 
+enum asset_font_type {
+    FontType_Default = 0,
+    FontType_Debug = 10,
+};
+
 enum asset_tag_id {
     Tag_Smoothness,
     Tag_Flatness,
     Tag_FacingDirection, // NOTE: Angle in radians off of due right
     Tag_UnicodeCodepoint,
+    Tag_FontType, // NOTE: 0 - Default Game Font, 10 - Debug Font?
 
     Tag_Count,
 };

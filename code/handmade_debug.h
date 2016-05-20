@@ -6,32 +6,36 @@
 #define TIMED_BLOCK(...) TIMED_BLOCK_(__LINE__, ## __VA_ARGS__)
 
 struct debug_record {
-    u64 CycleCount;
-
     char *FileName;
     char *FunctionName;
 
     u32 LineNumber;
-    u32 HitCount;
+    u32 Reserved;
+
+    u64 HitCount_CycleCount;
 };
 
 debug_record DebugRecordArray[];
 
 struct timed_block {
     debug_record *Record;
+    u64 StartCycles;
+    u32 HitCount;
 
-    timed_block(int Counter, char *FileName, int LineNumber, char *FunctionName, int HitCount = 1) {
-        // TODO: Thread safety
+    timed_block(int Counter, char *FileName, int LineNumber, char *FunctionName, u32 HitCountInit = 1) {
+        HitCount = HitCountInit;
+
         Record = DebugRecordArray + Counter;
         Record->FileName = FileName;
         Record->LineNumber = LineNumber;
         Record->FunctionName = FunctionName;
-        Record->CycleCount -= __rdtsc();
-        Record->HitCount += HitCount;
+
+        StartCycles = __rdtsc();
     }
 
     ~timed_block() {
-        Record->CycleCount += __rdtsc();
+        u64 Delta = (__rdtsc() - StartCycles) | (((u64)HitCount) << 32);
+        AtomicAddU64(&Record->HitCount_CycleCount, Delta);
     }
 };
 

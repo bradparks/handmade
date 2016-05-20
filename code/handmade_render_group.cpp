@@ -25,6 +25,8 @@ internal void
 DrawRectangle(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v4 Color,
               rectangle2i ClipRect, bool32 Even)
 {
+    TIMED_BLOCK();
+
     real32 R = Color.r;
     real32 G = Color.g;
     real32 B = Color.b;
@@ -373,6 +375,8 @@ internal void
 DrawBitmap(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
            real32 RealX, real32 RealY, real32 CAlpha = 1.0)
 {
+    TIMED_BLOCK();
+
     int MinX = RoundReal32ToInt32(RealX);
     int MinY = RoundReal32ToInt32(RealY);
     int MaxX = MinX + Bitmap->Width;
@@ -439,6 +443,8 @@ DrawBitmap(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
 
 internal void
 ChangeSaturation(loaded_bitmap *Buffer, real32 Level) {
+    TIMED_BLOCK();
+
     uint8 *DestRow = (uint8 *) Buffer->Memory;
     for (int32 Y = 0; Y < Buffer->Height; ++Y) {
         uint32 *Dest = (uint32 *) DestRow;
@@ -595,6 +601,8 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(DoTileRenderWork) {
 
 internal void
 RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget) {
+    TIMED_BLOCK();
+
     Assert(RenderGroup->InsideRender);
 
     Assert(((uintptr)OutputTarget->Memory & 15) == 0);
@@ -617,6 +625,8 @@ internal void
 TiledRenderGroupToOutput(platform_work_queue *RenderQueue,
                          render_group *RenderGroup, loaded_bitmap *OutputTarget)
 {
+    TIMED_BLOCK();
+
     Assert(RenderGroup->InsideRender);
 
     /*
@@ -709,6 +719,8 @@ AllocateRenderGroup(game_assets *Assets, memory_arena *Arena,
 
 internal void
 BeginRender(render_group *Group) {
+    TIMED_BLOCK();
+
     if (Group) {
         Assert(!Group->InsideRender);
         Group->InsideRender = true;
@@ -719,6 +731,8 @@ BeginRender(render_group *Group) {
 
 internal void
 EndRender(render_group *Group) {
+    TIMED_BLOCK();
+
     if (Group) {
         Assert(Group->InsideRender);
         Group->InsideRender = false;
@@ -772,6 +786,8 @@ struct entity_basis_p_result {
 
 inline entity_basis_p_result
 GetRenderEntityBasisP(render_transform *Transform, v3 OriginalP) {
+    TIMED_BLOCK();
+
     entity_basis_p_result Result = {};
 
     v3 P = V3(OriginalP.xy, 0.0f) + Transform->OffsetP;

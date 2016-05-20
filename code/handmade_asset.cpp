@@ -20,6 +20,8 @@ struct load_asset_work {
 internal void
 LoadAssetWorkDirectly(load_asset_work *Work)
 {
+    TIMED_BLOCK();
+
     Platform.ReadDataFromFile(Work->Handle, Work->Offset, Work->Size, Work->Destination);
 
     if (PlatformNoFileErrors(Work->Handle)) {
@@ -149,6 +151,8 @@ GenerationHasCompleted(game_assets *Assets, u32 CheckID) {
 
 inline asset_memory_header *
 AcquireAssetMemory(game_assets *Assets, memory_index Size, u32 AssetIndex) {
+    TIMED_BLOCK();
+
     asset_memory_header *Result = 0;
 
     BeginAssetLock(Assets);
@@ -164,7 +168,7 @@ AcquireAssetMemory(game_assets *Assets, memory_index Size, u32 AssetIndex) {
             memory_index BlockSplitThreshold = 4096; // TODO: Set this based on the smallest asset size
             if (RemainingSize > BlockSplitThreshold) {
                 Block->Size -= RemainingSize;
-                InsertBlock(Block, RemainingSize, (u8 *)Result + Size);
+                InsertBlock(Block, (u32)RemainingSize, (u8 *)Result + Size);
             } else {
                 // TODO: Actually record the unused portion of the memory
                 // in a block so that we can do the merge on blocks when neighbors
@@ -204,7 +208,7 @@ AcquireAssetMemory(game_assets *Assets, memory_index Size, u32 AssetIndex) {
 
     if (Result) {
         Result->AssetIndex = AssetIndex;
-        Result->TotalSize = Size;
+        Result->TotalSize = (u32)Size;
         InsertAssetHeaderAtFront(Assets, Result);
     }
 
@@ -221,6 +225,8 @@ struct asset_memory_size {
 
 internal void
 LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate) {
+    TIMED_BLOCK();
+
     asset *Asset = Assets->Assets + ID.Value;
 
     if (ID.Value) {
@@ -286,6 +292,8 @@ LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate) {
 
 internal void
 LoadSound(game_assets *Assets, sound_id ID) {
+    TIMED_BLOCK();
+
     asset *Asset = Assets->Assets + ID.Value;
 
     if (ID.Value &&
@@ -532,7 +540,7 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *Tran
     Assets->MemorySentinel.Prev = &Assets->MemorySentinel;
     Assets->MemorySentinel.Next = &Assets->MemorySentinel;
 
-    InsertBlock(&Assets->MemorySentinel, Size, PushSize(Arena, Size));
+    InsertBlock(&Assets->MemorySentinel, (u32)Size, PushSize(Arena, Size));
 
     Assets->TranState = TranState;
 

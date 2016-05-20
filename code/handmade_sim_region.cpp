@@ -117,6 +117,8 @@ AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low
 
 internal sim_region *
 BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_position Origin, rectangle3 Bounds, real32 dt) {
+    TIMED_BLOCK();
+
     // TODO: If entities were stored in the world, wouldn't need the game state here!
 
     sim_region *SimRegion = PushStruct(SimArena, sim_region);
@@ -174,6 +176,8 @@ BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_posi
 
 internal void
 EndSim(sim_region *Region, game_state *GameState) {
+    TIMED_BLOCK();
+
     // TODO: Maybe don't takt a game state here, low entities should be stored
     // in the world??
     sim_entity *Entity = Region->Entities;
@@ -391,6 +395,8 @@ EntitiesOverlap(sim_entity *Entity, sim_entity *TestEntity, v3 Epsilon = V3(0, 0
 internal void
 MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, real32 dt,
            move_spec *MoveSpec, v3 ddP) {
+    TIMED_BLOCK();
+
     Assert(!IsSet(Entity, EntityFlag_Nonspatial));
 
     world *World = SimRegion->World;

@@ -308,13 +308,12 @@ LoadWAV(char *FileName, uint32 SectionFirstSampleIndex, uint32 SectionSampleCoun
 }
 
 internal loaded_font *
-LoadFont(char *FileName, char *FontName) {
+LoadFont(char *FileName, char *FontName, int PixelHeight) {
 
     loaded_font *Font = (loaded_font *)malloc(sizeof(loaded_font));
 
     AddFontResourceEx(FileName, FR_PRIVATE, 0);
-    int Height = 64; // TODO: Figure out how to specify pixels properly here
-    Font->Win32Handle = CreateFontA(Height, 0, 0, 0,
+    Font->Win32Handle = CreateFontA(PixelHeight, 0, 0, 0,
                                     FW_NORMAL, // NOTE: Weight
                                     FALSE, // NOTE: Italic
                                     FALSE, // NOTE: Underline
@@ -802,29 +801,37 @@ WriteFonts(void) {
     game_assets *Assets = &Assets_;
     Initialize(Assets);
 
-    loaded_font *DebugFont = LoadFont("c:/Windows/Fonts/arial.ttf", "Arial");
-    //AddCharacterAsset(Assets, "c:/Windows/Fonts/arial.ttf", "Arial", Character);
+    loaded_font *Fonts[] = {
+        LoadFont("c:/Windows/Fonts/arial.ttf", "Arial", 64),
+        LoadFont("c:/Windows/Fonts/LiberationMono-Regular.ttf", "Liberation Mono", 20),
+    };
 
     BeginAssetType(Assets, Asset_FontGlyph);
-    AddCharacterAsset(Assets, DebugFont, ' ');
-    for (u32 Character = '!';
-         Character <= '~';
-         ++Character)
-    {
-        AddCharacterAsset(Assets, DebugFont, Character);
+    for (u32 FontIndex = 0; FontIndex < ArrayCount(Fonts); ++FontIndex) {
+        loaded_font *Font = Fonts[FontIndex];
+
+        AddCharacterAsset(Assets, Font, ' ');
+        for (u32 Character = '!';
+             Character <= '~';
+             ++Character)
+        {
+            AddCharacterAsset(Assets, Font, Character);
+        }
+
+        AddCharacterAsset(Assets, Font, 0x5c0f);
+        AddCharacterAsset(Assets, Font, 0x8033);
+        AddCharacterAsset(Assets, Font, 0x6728);
+        AddCharacterAsset(Assets, Font, 0x514e);
     }
-
-    AddCharacterAsset(Assets, DebugFont, 0x5c0f);
-    AddCharacterAsset(Assets, DebugFont, 0x8033);
-    AddCharacterAsset(Assets, DebugFont, 0x6728);
-    AddCharacterAsset(Assets, DebugFont, 0x514e);
-
     EndAssetType(Assets);
 
     BeginAssetType(Assets, Asset_Font);
-    AddFontAsset(Assets, DebugFont);
-    EndAssetType(Assets);
+    AddFontAsset(Assets, Fonts[0]);
+    AddTag(Assets, Tag_FontType, (r32)FontType_Default);
 
+    AddFontAsset(Assets, Fonts[1]);
+    AddTag(Assets, Tag_FontType, (r32)FontType_Debug);
+    EndAssetType(Assets);
 
     WriteHHA(Assets, "testfonts.hha");
 }
