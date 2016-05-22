@@ -319,6 +319,9 @@ typedef struct game_memory {
     memory_index TransientStorageSize;
     void *TransientStorage; // NOTE: REQUIRED to be cleared to zero at startup
 
+    memory_index DebugStorageSize;
+    void *DebugStorage; // NOTE: REQUIRED to be cleared to zero at startup
+
     platform_work_queue *HighPriorityQueue;
     platform_work_queue *LowPriorityQueue;
 
@@ -334,6 +337,18 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 // or asking about it, etc.
 #define GAME_GET_SOUND_SAMPLES(name) void name(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
 typedef GAME_GET_SOUND_SAMPLES(game_get_sound_samples);
+
+struct debug_frame_end_info {
+    r32 ExecutableReady;
+    r32 InputProcessed;
+    r32 GameUpdated;
+    r32 AudioUpdated;
+    r32 FramerateWaitComplete;
+    r32 EndOfFrame;
+};
+
+#define DEBUG_GAME_FRAME_END(name) void name(game_memory *Memory, debug_frame_end_info *Info)
+typedef DEBUG_GAME_FRAME_END(debug_game_frame_end);
 
 inline game_controller_input *GetController(game_input *Input, size_t ControllerIndex) {
     Assert(ControllerIndex < ArrayCount(Input->Controllers));
