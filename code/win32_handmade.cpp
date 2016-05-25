@@ -369,6 +369,7 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer, HDC DeviceContext,
                       Buffer->Memory, &Buffer->Info,
                       DIB_RGB_COLORS, SRCCOPY);
     } else {
+#if 1
         int OffsetX = 10;
         int OffsetY = 10;
 
@@ -389,6 +390,16 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer, HDC DeviceContext,
                       0, 0, Buffer->Width, Buffer->Height,
                       Buffer->Memory, &Buffer->Info,
                       DIB_RGB_COLORS, SRCCOPY);
+#else
+        r32 HeightOverWidth = (r32)Buffer->Height / (r32)Buffer->Width;
+        s32 Width = WindowWidth;
+        s32 Height = (s32)(Width * HeightOverWidth);
+        StretchDIBits(DeviceContext,
+                      0, 0, Width, Height,
+                      0, 0, Buffer->Width, Buffer->Height,
+                      Buffer->Memory, &Buffer->Info,
+                      DIB_RGB_COLORS, SRCCOPY);
+#endif
     }
 }
 
@@ -1124,6 +1135,15 @@ PLATFORM_DEALLOCATE_MEMORY(Win32DeallocateMemory) {
     }
 }
 
+inline void
+Win32RecordTimestamp(debug_frame_end_info *Info, char *Name, r32 Seconds) {
+    Assert(Info->TimestampCount < ArrayCount(Info->Timestamps));
+
+    debug_frame_timestamp *Timestamp = Info->Timestamps + Info->TimestampCount++;
+    Timestamp->Name = Name;
+    Timestamp->Seconds = Seconds;
+}
+
 int CALLBACK
 WinMain(HINSTANCE Instance,
         HINSTANCE hPrevInstance,
@@ -1202,8 +1222,8 @@ WinMain(HINSTANCE Instance,
        1080 -> 2048 = 2048 - 1080 -> 968 pixels
        1024 + 128 = 1152
      */
-    Win32ResizeDIBSection(&GlobalBackBuffer, 960, 540);
-    //Win32ResizeDIBSection(&GlobalBackBuffer, 1920, 1080);
+    //Win32ResizeDIBSection(&GlobalBackBuffer, 960, 540);
+    Win32ResizeDIBSection(&GlobalBackBuffer, 1920, 1080);
 
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -1269,8 +1289,8 @@ WinMain(HINSTANCE Instance,
             LPVOID BaseAddress = 0;
 #endif
             game_memory GameMemory = {};
-            GameMemory.PermanentStorageSize = Megabytes(256);
-            GameMemory.TransientStorageSize = Gigabytes(1);
+            GameMemory.PermanentStorageSize = Megabytes(64);
+            GameMemory.TransientStorageSize = Megabytes(256);
             GameMemory.DebugStorageSize = Megabytes(64);
             GameMemory.HighPriorityQueue = &HighPriorityQueue;
             GameMemory.LowPriorityQueue = &LowPriorityQueue;
@@ -1377,7 +1397,7 @@ WinMain(HINSTANCE Instance,
                         NewInput->ExecutableReloaded = true;
                     }
 
-                    FrameEndInfo.ExecutableReady = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock());
+                    Win32RecordTimestamp(&FrameEndInfo, "ExecutableReady", Win32GetSecondsElapsed(LastCounter, Win32GetWallClock()));
 
                     // TODO: Zeroing macro
                     // TODO: We can't zero everything because the up/down state will
@@ -1526,7 +1546,7 @@ WinMain(HINSTANCE Instance,
                         }
                     }
 
-                    FrameEndInfo.InputProcessed = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock());
+                    Win32RecordTimestamp(&FrameEndInfo, "InputProcessed", Win32GetSecondsElapsed(LastCounter, Win32GetWallClock()));
 
                     if (!GlobalPause) {
                         game_offscreen_buffer Buffer = {};
@@ -1548,7 +1568,7 @@ WinMain(HINSTANCE Instance,
                         }
                     }
 
-                    FrameEndInfo.GameUpdated = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock());
+                    Win32RecordTimestamp(&FrameEndInfo, "GameUpdated", Win32GetSecondsElapsed(LastCounter, Win32GetWallClock()));
 
                     if (!GlobalPause) {
                         LARGE_INTEGER AudioWallClock = Win32GetWallClock();
@@ -1663,7 +1683,7 @@ WinMain(HINSTANCE Instance,
 
                     }
 
-                    FrameEndInfo.AudioUpdated = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock());
+                    Win32RecordTimestamp(&FrameEndInfo, "AudioUpdated", Win32GetSecondsElapsed(LastCounter, Win32GetWallClock()));
 
                     if (!GlobalPause) {
                         LARGE_INTEGER WorkCounter = Win32GetWallClock();
@@ -1694,7 +1714,7 @@ WinMain(HINSTANCE Instance,
                         }
                     }
 
-                    FrameEndInfo.FramerateWaitComplete = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock());
+                    Win32RecordTimestamp(&FrameEndInfo, "FramerateWaitComplete", Win32GetSecondsElapsed(LastCounter, Win32GetWallClock()));
 
                     if (!GlobalPause) {
                         win32_window_dimension Dimension = Win32GetWindowDimension(Window);
@@ -1713,7 +1733,7 @@ WinMain(HINSTANCE Instance,
                         LastCounter = EndCounter;
 
 #if HANDMADE_INTERNAL
-                        FrameEndInfo.EndOfFrame = Win32GetSecondsElapsed(LastCounter, EndCounter);
+                        Win32RecordTimestamp(&FrameEndInfo, "EndOfFrame", Win32GetSecondsElapsed(LastCounter, EndCounter));
 
                         uint64 EndCycleCount = __rdtsc();
                         uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
