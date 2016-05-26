@@ -1,0 +1,3 @@
+cmd: "build"
+errorMatch:
+  (?<file>.+)\((?<line>\d+)\):\s+(?<message>.+)
