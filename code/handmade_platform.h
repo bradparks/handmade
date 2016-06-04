@@ -176,6 +176,7 @@ typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
 #define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(const char *Filename, uint32 MemorySize, void *Memory)
 typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
 
+// TODO: Actually stoping using this
 extern struct game_memory *DebugGlobalMemory;
 
 #endif
@@ -374,18 +375,9 @@ inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, ui
 #else
 // TODO: Need GCC/LLVM equiavalents!
 #endif
-struct debug_frame_timestamp {
-    char *Name;
-    r32 Seconds;
-};
 
-struct debug_frame_end_info {
-    r32 TotalSeconds;
-    u32 TimestampCount;
-    debug_frame_timestamp Timestamps[64];
-};
-
-#define DEBUG_GAME_FRAME_END(name) void name(game_memory *Memory, debug_frame_end_info *Info)
+struct debug_table;
+#define DEBUG_GAME_FRAME_END(name) debug_table *name(game_memory *Memory)
 typedef DEBUG_GAME_FRAME_END(debug_game_frame_end);
 
 inline game_controller_input *GetController(game_input *Input, size_t ControllerIndex) {
@@ -393,21 +385,16 @@ inline game_controller_input *GetController(game_input *Input, size_t Controller
     return &Input->Controllers[ControllerIndex];
 }
 
-#define TIMED_BLOCK__(Number, ...) timed_block TimedBlock_##Number(__COUNTER__, __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__)
-#define TIMED_BLOCK_(Number, ...) TIMED_BLOCK__(Number, ## __VA_ARGS__)
-#define TIMED_BLOCK(...) TIMED_BLOCK_(__LINE__, ## __VA_ARGS__)
-
 struct debug_record {
     char *FileName;
-    char *FunctionName;
+    char *BlockName;
 
     u32 LineNumber;
     u32 Reserved;
-
-    u64 HitCount_CycleCount;
 };
 
 enum debug_event_type {
+    DebugEvent_FrameMaker,
     DebugEvent_BeginBlock,
     DebugEvent_EndBlock,
 };
@@ -417,11 +404,12 @@ struct debug_event {
     u16 ThreadIndex;
     u16 CoreIndex;
     u16 DebugRecordIndex;
-    u8  TranslationUnit;
+    u8 TranslationUnit;
     u8 Type;
 };
 
 debug_record DebugRecordArray[];
+#define MAX_DEBUG_FRAME_COUNT 64
 #define MAX_DEBUG_TRANSLATION_UNITS 3
 #define MAX_DEBUG_EVENT_COUNT (16*65536)
 #define MAX_DEBUG_RECORD_COUNT (65536)
@@ -429,18 +417,21 @@ debug_record DebugRecordArray[];
 struct debug_table {
     u32 CurrentEventArrayIndex;
     u64 volatile EventArrayIndex_EventIndex;
-    debug_event Events[2][MAX_DEBUG_EVENT_COUNT];
+    u32 EventCount[MAX_DEBUG_FRAME_COUNT];
+    debug_event Events[MAX_DEBUG_FRAME_COUNT][MAX_DEBUG_EVENT_COUNT];
+
+    u32 RecordCount[MAX_DEBUG_TRANSLATION_UNITS];
     debug_record Records[MAX_DEBUG_TRANSLATION_UNITS][MAX_DEBUG_RECORD_COUNT];
 };
 
-extern debug_table GlobalDebugTable;
+extern debug_table *GlobalDebugTable;
 
 inline void
 RecordDebugEvent(int RecordIndex, debug_event_type EventType) {
-    u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugTable.EventArrayIndex_EventIndex, 1);
+    u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugTable->EventArrayIndex_EventIndex, 1);
     u32 EventIndex = ArrayIndex_EventIndex & 0xFFFFFFFF;
     Assert(EventIndex < MAX_DEBUG_EVENT_COUNT);
-    debug_event *Event = GlobalDebugTable.Events[ArrayIndex_EventIndex >> 32] + EventIndex;
+    debug_event *Event = GlobalDebugTable->Events[ArrayIndex_EventIndex >> 32] + EventIndex;
     Event->Clock = __rdtsc();
     Event->ThreadIndex = (u16)GetThreadID();
     Event->CoreIndex = 0;
@@ -449,23 +440,49 @@ RecordDebugEvent(int RecordIndex, debug_event_type EventType) {
     Event->Type = (u8)EventType;
 }
 
+#define FRAME_MARKER() \
+    { \
+        int Counter = __COUNTER__; \
+        RecordDebugEvent(Counter, DebugEvent_FrameMaker); \
+        debug_record *Record = GlobalDebugTable->Records[TRANSLATION_UNIT_INDEX] + Counter; \
+        Record->FileName = __FILE__; \
+        Record->LineNumber = __LINE__; \
+        Record->BlockName = "Frame Marker"; \
+    }
+
+#define TIMED_BLOCK__(BlockName, Number, ...) timed_block TimedBlock_##Number(__COUNTER__, __FILE__, __LINE__, BlockName, ## __VA_ARGS__)
+#define TIMED_BLOCK_(BlockName, Number, ...) TIMED_BLOCK__(BlockName, Number, ## __VA_ARGS__)
+#define TIMED_BLOCK(BlockName, ...) TIMED_BLOCK_(#BlockName, __LINE__, ## __VA_ARGS__)
+#define TIMED_FUNCTION(...) TIMED_BLOCK_(__FUNCTION__, __LINE__, ## __VA_ARGS__)
+
+#define BEGIN_BLOCK_(Counter, FileNameInit, LineNumberInit, BlockNameInit) \
+    {debug_record *Record = GlobalDebugTable->Records[TRANSLATION_UNIT_INDEX] + Counter; \
+    Record->FileName = FileNameInit; \
+    Record->LineNumber = LineNumberInit; \
+    Record->BlockName = BlockNameInit; \
+    RecordDebugEvent(Counter, DebugEvent_BeginBlock);}
+
+#define END_BLOCK_(Counter) \
+    RecordDebugEvent(Counter, DebugEvent_EndBlock);
+
+#define BEGIN_BLOCK(Name) \
+    int Counter_##Name = __COUNTER__; \
+    BEGIN_BLOCK_(Counter_##Name, __FILE__, __LINE__, #Name)
+
+#define END_BLOCK(Name) \
+    END_BLOCK_(Counter_##Name)
+
 struct timed_block {
     int Counter;
 
-    timed_block(int CounterInit, char *FileName, int LineNumber, char *FunctionName, u32 HitCountInit = 1) {
-        // TODO: Record the hit count value here?
+    timed_block(int CounterInit, char *FileName, int LineNumber, char *BlockName, u32 HitCountInit = 1) {
         Counter = CounterInit;
-
-        debug_record *Record = GlobalDebugTable.Records[TRANSLATION_UNIT_INDEX] + Counter;
-        Record->FileName = FileName;
-        Record->LineNumber = LineNumber;
-        Record->FunctionName = FunctionName;
-
-        RecordDebugEvent(Counter, DebugEvent_BeginBlock);
+        // TODO: Record the hit count value here?
+        BEGIN_BLOCK_(Counter, FileName, LineNumber, BlockName);
     }
 
     ~timed_block() {
-        RecordDebugEvent(Counter, DebugEvent_EndBlock);
+        END_BLOCK_(Counter);
     }
 };
 

@@ -82,7 +82,6 @@
 #include "handmade_platform.h"
 #include "handmade_intrinsics.h"
 #include "handmade_math.h"
-#include "handmade_debug.h"
 
 #define Minimum(A, B) ((A < B) ? (A) : (B))
 #define Maximum(A, B) ((A > B) ? (A) : (B))
@@ -99,6 +98,8 @@ struct temporary_memory {
     memory_arena *Arena;
     memory_index Used;
 };
+
+#include "handmade_debug.h"
 
 inline void
 InitializeArena(memory_arena *Arena, memory_index Size, void *Base) {

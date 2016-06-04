@@ -20,7 +20,7 @@ struct load_asset_work {
 internal void
 LoadAssetWorkDirectly(load_asset_work *Work)
 {
-    TIMED_BLOCK();
+    TIMED_FUNCTION();
 
     Platform.ReadDataFromFile(Work->Handle, Work->Offset, Work->Size, Work->Destination);
 
@@ -151,7 +151,7 @@ GenerationHasCompleted(game_assets *Assets, u32 CheckID) {
 
 inline asset_memory_header *
 AcquireAssetMemory(game_assets *Assets, memory_index Size, u32 AssetIndex) {
-    TIMED_BLOCK();
+    TIMED_FUNCTION();
 
     asset_memory_header *Result = 0;
 
@@ -225,7 +225,7 @@ struct asset_memory_size {
 
 internal void
 LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate) {
-    TIMED_BLOCK();
+    TIMED_FUNCTION();
 
     asset *Asset = Assets->Assets + ID.Value;
 
@@ -292,7 +292,7 @@ LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate) {
 
 internal void
 LoadSound(game_assets *Assets, sound_id ID) {
-    TIMED_BLOCK();
+    TIMED_FUNCTION();
 
     asset *Asset = Assets->Assets + ID.Value;
 
@@ -528,7 +528,7 @@ GetRandomSoundFrom(game_assets *Assets, asset_type_id TypeID, random_series *Ser
 
 internal game_assets *
 AllocateGameAssets(memory_arena *Arena, memory_index Size, transient_state *TranState) {
-    TIMED_BLOCK();
+    TIMED_FUNCTION();
 
     game_assets *Assets = PushStruct(Arena, game_assets);
 
