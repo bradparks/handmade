@@ -19,12 +19,28 @@ struct debug_frame_region {
     r32 MaxT;
 };
 
+#define MAX_REGIONS_PER_FRAME 256
 struct debug_frame {
     u64 BeginClock;
     u64 EndClock;
 
     u32 RegionCount;
     debug_frame_region *Regions;
+};
+
+struct open_debug_block {
+    u32 StartingFrameIndex;
+    debug_event *OpeningEvent;
+    open_debug_block *Parent;
+
+    open_debug_block *NextFree;
+};
+
+struct debug_thread {
+    u32 ID;
+    u32 LaneIndex;
+    open_debug_block *FirstOpenBlock;
+    debug_thread *Next;
 };
 
 struct debug_state {
@@ -38,6 +54,8 @@ struct debug_state {
     u32 FrameCount;
 
     debug_frame *Frames;
+    debug_thread *FirstThread;
+    open_debug_block *FirstFreeBlock;
 };
 
 // TODO: Fix this for looped live code editing
