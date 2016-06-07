@@ -347,12 +347,12 @@ inline uint32 AtomicCompareExchangeUInt32(uint32 volatile *Value, uint32 New, ui
     return Result;
 }
 inline u64 AtomicExchangeU64(u64 volatile *Value, u64 New) {
-    u64 Result = _InterlockedExchange64((__int64 *)Value, New);
+    u64 Result = _InterlockedExchange64((__int64 volatile *)Value, New);
     return Result;
 }
 inline u64 AtomicAddU64(u64 volatile *Value, u64 Addend) {
     // NOTE: Returns the original value _priori_ to adding
-    u64 Result = _InterlockedExchangeAdd64((__int64 *)Value, Addend);
+    u64 Result = _InterlockedExchangeAdd64((__int64 volatile *)Value, Addend);
     return Result;
 }
 inline u32 GetThreadID(void) {
@@ -429,12 +429,14 @@ extern debug_table *GlobalDebugTable;
 
 inline void
 RecordDebugEvent(int RecordIndex, debug_event_type EventType) {
+    Assert((((u64)&GlobalDebugTable->EventArrayIndex_EventIndex) & 0x7) == 0);
     u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugTable->EventArrayIndex_EventIndex, 1);
     u32 EventIndex = ArrayIndex_EventIndex & 0xFFFFFFFF;
     Assert(EventIndex < MAX_DEBUG_EVENT_COUNT);
     debug_event *Event = GlobalDebugTable->Events[ArrayIndex_EventIndex >> 32] + EventIndex;
     Event->Clock = __rdtsc();
-    Event->ThreadID = (u16)GetThreadID();
+    u32 ThreadID = GetThreadID();
+    Event->ThreadID = (u16)ThreadID;
     Event->CoreIndex = 0;
     Event->DebugRecordIndex = (u16)RecordIndex;
     Event->TranslationUnit = TRANSLATION_UNIT_INDEX;

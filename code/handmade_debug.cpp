@@ -292,7 +292,6 @@ AddRegion(debug_state *DebugState, debug_frame *CurrentFrame) {
 
 internal void
 CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
-    DebugState->FirstThread = 0;
     DebugState->Frames = PushArray(&DebugState->CollateArena, MAX_DEBUG_EVENT_ARRAY_COUNT * 4, debug_frame);
     DebugState->FrameBarLaneCount = 0;
     DebugState->FrameBarScale = 1.0f;
@@ -368,8 +367,8 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
                                 // TODO: Record all frames in between and begin/end spans!
                             }
 
-                            Thread->FirstOpenBlock->NextFree = DebugState->FirstFreeBlock;
-                            DebugState->FirstFreeBlock = Thread->FirstOpenBlock;
+                            MatchingBlock->NextFree = DebugState->FirstFreeBlock;
+                            DebugState->FirstFreeBlock = MatchingBlock;
                             Thread->FirstOpenBlock = MatchingBlock->Parent;
                         } else {
                             // TODO: Record span that goes to the begining of the frame series?
