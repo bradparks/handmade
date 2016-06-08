@@ -194,6 +194,14 @@ DEBUGOverlay(game_memory *Memory) {
                 }
             }
 #endif
+            if (DebugState->FrameCount) {
+                char buf[512];
+                snprintf(buf, 512, "Last frame time: %.02fms",
+                         DebugState->Frames[DebugState->FrameCount - 1].WallSecondsElapsed * 1000.0f);
+                DEBUGTextLine(buf);
+            }
+
+            AtY -= 300.0f;
 
             r32 LaneWidth = 8.0f;
             u32 LaneCount = DebugState->FrameBarLaneCount;
@@ -219,9 +227,14 @@ DEBUGOverlay(game_memory *Memory) {
                 {0.5f, 0, 1},
                 {0, 0.5f, 1},
             };
+
+            u32 MaxFrame = DebugState->FrameCount;
+            if (MaxFrame > 10) {
+                MaxFrame = 10;
+            }
 #if 1
-            for (u32 FrameIndex = 0; FrameIndex < DebugState->FrameCount; ++FrameIndex) {
-                debug_frame *Frame = DebugState->Frames + FrameIndex;
+            for (u32 FrameIndex = 0; FrameIndex < MaxFrame; ++FrameIndex) {
+                debug_frame *Frame = DebugState->Frames + DebugState->FrameCount - (FrameIndex + 1);
                 r32 StackX = ChartLeft + BarSpacing * (r32)FrameIndex;
                 r32 StackY = ChartMinY;
                 r32 PrevTimestampSeconds = 0.0f;
@@ -294,7 +307,7 @@ internal void
 CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
     DebugState->Frames = PushArray(&DebugState->CollateArena, MAX_DEBUG_EVENT_ARRAY_COUNT * 4, debug_frame);
     DebugState->FrameBarLaneCount = 0;
-    DebugState->FrameBarScale = 1.0f;
+    DebugState->FrameBarScale = 1.0f / 60000000.0f;
     DebugState->FrameCount = 0;
 
     debug_frame *CurrentFrame = 0;
@@ -314,14 +327,17 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
             if (Event->Type == DebugEvent_FrameMaker) {
                 if (CurrentFrame) {
                     CurrentFrame->EndClock = Event->Clock;
+                    CurrentFrame->WallSecondsElapsed = Event->SecondsElapsed;
 
                     r32 ClockRange = (r32)(CurrentFrame->EndClock - CurrentFrame->BeginClock);
+#if 0
                     if (ClockRange > 0.0f) {
                         r32 FrameBarScale = 1.0f / ClockRange;
                         if (DebugState->FrameBarScale > FrameBarScale) {
                             DebugState->FrameBarScale = FrameBarScale;
                         }
                     }
+#endif
                 }
 
                 CurrentFrame = DebugState->Frames + DebugState->FrameCount++;
@@ -329,11 +345,12 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
                 CurrentFrame->EndClock = 0;
                 CurrentFrame->RegionCount = 0;
                 CurrentFrame->Regions = PushArray(&DebugState->CollateArena, MAX_REGIONS_PER_FRAME, debug_frame_region);
+                CurrentFrame->WallSecondsElapsed = 0.0f;
             } else if (CurrentFrame) {
                 u32 FrameIndex = DebugState->FrameCount - 1;
-                debug_thread *Thread = GetDebugThread(DebugState, Event->ThreadID);
+                debug_thread *Thread = GetDebugThread(DebugState, Event->TC.ThreadID);
                 u64 RelativeClock = Event->Clock - CurrentFrame->BeginClock;
-                u32 LaneIndex = GetLaneFromThreadIndex(DebugState, Event->ThreadID);
+                u32 LaneIndex = GetLaneFromThreadIndex(DebugState, Event->TC.ThreadID);
                 if (Event->Type == DebugEvent_BeginBlock) {
                     open_debug_block *DebugBlock = DebugState->FirstFreeBlock;
                     if (DebugBlock) {
@@ -352,16 +369,21 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
                         open_debug_block *MatchingBlock = Thread->FirstOpenBlock;
                         debug_event *OpeningEvent = MatchingBlock->OpeningEvent;
                         if (
-                            (OpeningEvent->ThreadID == Event->ThreadID) &&
+                            (OpeningEvent->TC.ThreadID == Event->TC.ThreadID) &&
                             (OpeningEvent->DebugRecordIndex == Event->DebugRecordIndex) &&
                             (OpeningEvent->TranslationUnit == Event->TranslationUnit)
                         ) {
                             if (MatchingBlock->StartingFrameIndex == FrameIndex) {
                                 if (Thread->FirstOpenBlock->Parent == 0) {
-                                    debug_frame_region *Region = AddRegion(DebugState, CurrentFrame);
-                                    Region->LaneIndex = Thread->LaneIndex;
-                                    Region->MinT = (r32)(OpeningEvent->Clock - CurrentFrame->BeginClock);
-                                    Region->MaxT = (r32)(Event->Clock - CurrentFrame->BeginClock);
+                                    r32 MinT = (r32)(OpeningEvent->Clock - CurrentFrame->BeginClock);
+                                    r32 MaxT = (r32)(Event->Clock - CurrentFrame->BeginClock);
+                                    r32 ThresholdT = 0.01f;
+                                    if ((MaxT - MinT) > ThresholdT) {
+                                        debug_frame_region *Region = AddRegion(DebugState, CurrentFrame);
+                                        Region->LaneIndex = Thread->LaneIndex;
+                                        Region->MinT = MinT;
+                                        Region->MaxT = MaxT;
+                                    }
                                 }
                             } else {
                                 // TODO: Record all frames in between and begin/end spans!
