@@ -598,7 +598,7 @@ RectCenterDim(v2 Center, v2 Dim) {
 }
 
 inline bool32
-IsInRectange(rectangle2 Rectangle, v2 Test) {
+IsInRectangle(rectangle2 Rectangle, v2 Test) {
     bool32 Result = (Test.x >= Rectangle.Min.x) &&
                     (Test.y >= Rectangle.Min.y) &&
                     (Test.x < Rectangle.Max.x) &&

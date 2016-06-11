@@ -1429,7 +1429,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     CheckArena(&TranState->TranArena);
 
     if (DEBUGRenderGroup) {
-        DEBUGOverlay(Memory);
+        DEBUGOverlay(Memory, Input);
         TiledRenderGroupToOutput(TranState->HighPriorityQueue, DEBUGRenderGroup, DrawBuffer);
         EndRender(DEBUGRenderGroup);
     }
