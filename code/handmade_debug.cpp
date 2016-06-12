@@ -50,7 +50,7 @@ GetHex(char Char) {
 }
 
 internal void
-DEBUGTextLine(char *String) {
+DEBUGTextOutAt(v2 P, char *String) {
     if (DEBUGRenderGroup) {
         render_group *RenderGroup = DEBUGRenderGroup;
 
@@ -59,7 +59,6 @@ DEBUGTextLine(char *String) {
         if (Font) {
             hha_font *Info = GetFontInfo(RenderGroup->Assets, FontID);
             u32 PrevCodePoint = 0;
-            r32 AtX = LeftEdge;
 
             for (char *At = String; *At; ++At) {
                 u32 CodePoint = *At;
@@ -77,17 +76,33 @@ DEBUGTextLine(char *String) {
                 }
 
                 r32 AdvanceX = FontScale * GetHorizontalAdvanceForPair(Info, Font, PrevCodePoint, CodePoint);
-                AtX += AdvanceX;
+                P.x += AdvanceX;
 
                 if (CodePoint != ' ') {
                     bitmap_id BitmapID = GetBitmapForGlyph(RenderGroup->Assets, Info, Font, CodePoint);
                     hha_bitmap *BitmapInfo = GetBitmapInfo(RenderGroup->Assets, BitmapID);
 
-                    PushBitmap(RenderGroup, BitmapID, FontScale * (r32)BitmapInfo->Dim[1], V3(AtX, AtY, 0), V4(1, 1, 1, 1));
+                    PushBitmap(RenderGroup, BitmapID, FontScale * (r32)BitmapInfo->Dim[1], V3(P.x, P.y, 0), V4(1, 1, 1, 1));
                 }
 
                 PrevCodePoint = CodePoint;
             }
+        } else {
+        }
+    }
+}
+
+internal void
+DEBUGTextLine(char *String) {
+    if (DEBUGRenderGroup) {
+        render_group *RenderGroup = DEBUGRenderGroup;
+
+        loaded_font *Font = PushFont(RenderGroup, FontID);
+
+        if (Font) {
+            hha_font *Info = GetFontInfo(RenderGroup->Assets, FontID);
+
+            DEBUGTextOutAt(V2(LeftEdge, AtY), String);
 
             AtY -= GetLineAdvanceFor(Info) * FontScale;
         } else {
@@ -140,6 +155,8 @@ DEBUGOverlay(game_memory *Memory, game_input *Input) {
     debug_state *DebugState = (debug_state *)Memory->DebugStorage;
     if (DebugState && DEBUGRenderGroup) {
         render_group *RenderGroup = DEBUGRenderGroup;
+
+        debug_record *HotRecord = 0;
 
         v2 MouseP = V2(Input->MouseX, Input->MouseY);
         if (WasPressed(Input->MouseButtons[PlatformMouseButton_Right])) {
@@ -212,15 +229,15 @@ DEBUGOverlay(game_memory *Memory, game_input *Input) {
                 DEBUGTextLine(buf);
             }
 
-            r32 LaneWidth = 8.0f;
+            r32 LaneHeight = 20.0f;
             u32 LaneCount = DebugState->FrameBarLaneCount;
-            r32 BarWidth = LaneWidth * LaneCount;
-            r32 BarSpacing = BarWidth + 4.0f;
+            r32 BarHeight = LaneHeight * LaneCount;
+            r32 BarSpacing = BarHeight + 4.0f;
             r32 ChartLeft = LeftEdge + 10.0f;
-            r32 ChartHeight = 300.0f;
-            r32 ChartWidth = BarSpacing * (r32)DebugState->FrameCount;
-            r32 ChartMinY = -0.5f * GlobalHeight + 500.0f;
-            r32 Scale = ChartHeight * DebugState->FrameBarScale;
+            r32 ChartHeight = BarSpacing * (r32)DebugState->FrameCount;
+            r32 ChartWidth = 1000.0f;
+            r32 ChartTop = 0.5f * GlobalHeight - 10.0f;
+            r32 Scale = ChartWidth * DebugState->FrameBarScale;
 
             v3 Colors[] = {
                 {1, 0, 0},
@@ -244,40 +261,51 @@ DEBUGOverlay(game_memory *Memory, game_input *Input) {
 #if 1
             for (u32 FrameIndex = 0; FrameIndex < MaxFrame; ++FrameIndex) {
                 debug_frame *Frame = DebugState->Frames + DebugState->FrameCount - (FrameIndex + 1);
-                r32 StackX = ChartLeft + BarSpacing * (r32)FrameIndex;
-                r32 StackY = ChartMinY;
+                r32 StackX = ChartLeft;
+                r32 StackY = ChartTop - BarSpacing * (r32)FrameIndex;
                 r32 PrevTimestampSeconds = 0.0f;
                 for (u32 RegionIndex = 0; RegionIndex < Frame->RegionCount; ++RegionIndex) {
                     debug_frame_region *Region = Frame->Regions + RegionIndex;
 
-                    v3 Color = Colors[RegionIndex % ArrayCount(Colors)];
-                    r32 ThisMinY = StackY + Scale * Region->MinT;
-                    r32 ThisMaxY = StackY + Scale * Region->MaxT;
+                    // v3 Color = Colors[RegionIndex % ArrayCount(Colors)];
+                    v3 Color = Colors[Region->ColorIndex % ArrayCount(Colors)];
+                    r32 ThisMinX = StackX + Scale * Region->MinT;
+                    r32 ThisMaxX = StackX + Scale * Region->MaxT;
 
-                    rectangle2 RegionRect = RectMinMax(V2(StackX + LaneWidth * Region->LaneIndex, ThisMinY),
-                                                       V2(StackX + LaneWidth * (Region->LaneIndex + 1), ThisMaxY));
+                    rectangle2 RegionRect = RectMinMax(V2(ThisMinX, StackY - LaneHeight * (Region->LaneIndex + 1)),
+                                                       V2(ThisMaxX, StackY - LaneHeight * Region->LaneIndex));
 
                     PushRect(RenderGroup, RegionRect, 0.0f, V4(Color, 1));
 
                     if (IsInRectangle(RegionRect, MouseP)) {
                         debug_record *Record = Region->Record;
                         char buf[512];
-                        snprintf(buf, 512, "%32s: %10llucy [%s(%d)]\n",
+                        snprintf(buf, 512, "%s: %10llucy [%s(%d)]\n",
                                  Record->BlockName,
                                  Region->CycleCount,
                                  Record->FileName,
                                  Record->LineNumber);
-                        DEBUGTextLine(buf);
+                        DEBUGTextOutAt(MouseP + V2(0.0f, 10.0f), buf);
+
+                        HotRecord = Record;
                     }
                 }
             }
 #endif
+#if 0
             PushRect(RenderGroup, V3(ChartLeft + 0.5f * ChartWidth, ChartMinY + ChartHeight, 0.0f),
                      V2(ChartWidth, 1.0f), V4(1, 1, 1, 1));
+#endif
         }
 
-        //DEBUGTextLine("\\5C0F\\8033\\6728\\514E");
-        //DEBUGTextLine("AVA WA Ta");
+        if (WasPressed(Input->MouseButtons[PlatformMouseButton_Left])) {
+            if (HotRecord) {
+                DebugState->ScopeToRecord = HotRecord;
+            } else {
+                DebugState->ScopeToRecord = 0;
+            }
+            RefreshCollation(DebugState);
+        }
     }
 }
 
@@ -325,19 +353,21 @@ AddRegion(debug_state *DebugState, debug_frame *CurrentFrame) {
     return Result;
 }
 
+inline debug_record *
+GetRecordFrom(open_debug_block *Block) {
+    debug_record *Result = Block ? Block->Source : 0;
+
+    return Result;
+}
+
 internal void
 CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
-    DebugState->Frames = PushArray(&DebugState->CollateArena, MAX_DEBUG_EVENT_ARRAY_COUNT * 4, debug_frame);
-    DebugState->FrameBarLaneCount = 0;
-    DebugState->FrameBarScale = 1.0f / 60000000.0f;
-    DebugState->FrameCount = 0;
-
-    debug_frame *CurrentFrame = 0;
-    for (u32 EventArrayIndex = InvalidEventArrayIndex + 1; /* empty */; ++EventArrayIndex) {
-        if (EventArrayIndex == MAX_DEBUG_EVENT_ARRAY_COUNT) {
-            EventArrayIndex = 0;
+    for (; /* empty */; ++DebugState->CollationArrayIndex) {
+        if (DebugState->CollationArrayIndex == MAX_DEBUG_EVENT_ARRAY_COUNT) {
+            DebugState->CollationArrayIndex = 0;
         }
 
+        u32 EventArrayIndex = DebugState->CollationArrayIndex;
         if (EventArrayIndex == InvalidEventArrayIndex) {
             break;
         }
@@ -347,12 +377,12 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
             debug_record *Source = (GlobalDebugTable->Records[Event->TranslationUnit] + Event->DebugRecordIndex);
 
             if (Event->Type == DebugEvent_FrameMaker) {
-                if (CurrentFrame) {
-                    CurrentFrame->EndClock = Event->Clock;
-                    CurrentFrame->WallSecondsElapsed = Event->SecondsElapsed;
+                if (DebugState->CollationFrame) {
+                    DebugState->CollationFrame->EndClock = Event->Clock;
+                    DebugState->CollationFrame->WallSecondsElapsed = Event->SecondsElapsed;
                     ++DebugState->FrameCount;
 
-                    r32 ClockRange = (r32)(CurrentFrame->EndClock - CurrentFrame->BeginClock);
+                    r32 ClockRange = (r32)(DebugState->CollationFrame->EndClock - DebugState->CollationFrame->BeginClock);
 #if 0
                     if (ClockRange > 0.0f) {
                         r32 FrameBarScale = 1.0f / ClockRange;
@@ -363,16 +393,16 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
 #endif
                 }
 
-                CurrentFrame = DebugState->Frames + DebugState->FrameCount;
-                CurrentFrame->BeginClock = Event->Clock;
-                CurrentFrame->EndClock = 0;
-                CurrentFrame->RegionCount = 0;
-                CurrentFrame->Regions = PushArray(&DebugState->CollateArena, MAX_REGIONS_PER_FRAME, debug_frame_region);
-                CurrentFrame->WallSecondsElapsed = 0.0f;
-            } else if (CurrentFrame) {
+                DebugState->CollationFrame = DebugState->Frames + DebugState->FrameCount;
+                DebugState->CollationFrame->BeginClock = Event->Clock;
+                DebugState->CollationFrame->EndClock = 0;
+                DebugState->CollationFrame->RegionCount = 0;
+                DebugState->CollationFrame->Regions = PushArray(&DebugState->CollateArena, MAX_REGIONS_PER_FRAME, debug_frame_region);
+                DebugState->CollationFrame->WallSecondsElapsed = 0.0f;
+            } else if (DebugState->CollationFrame) {
                 u32 FrameIndex = DebugState->FrameCount - 1;
                 debug_thread *Thread = GetDebugThread(DebugState, Event->TC.ThreadID);
-                u64 RelativeClock = Event->Clock - CurrentFrame->BeginClock;
+                u64 RelativeClock = Event->Clock - DebugState->CollationFrame->BeginClock;
                 u32 LaneIndex = GetLaneFromThreadIndex(DebugState, Event->TC.ThreadID);
                 if (Event->Type == DebugEvent_BeginBlock) {
                     open_debug_block *DebugBlock = DebugState->FirstFreeBlock;
@@ -385,6 +415,7 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
                     DebugBlock->StartingFrameIndex = FrameIndex;
                     DebugBlock->OpeningEvent = Event;
                     DebugBlock->Parent = Thread->FirstOpenBlock;
+                    DebugBlock->Source = Source;
                     Thread->FirstOpenBlock = DebugBlock;
                     DebugBlock->NextFree = 0;
                 } else if (Event->Type == DebugEvent_EndBlock) {
@@ -397,17 +428,18 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
                             (OpeningEvent->TranslationUnit == Event->TranslationUnit)
                         ) {
                             if (MatchingBlock->StartingFrameIndex == FrameIndex) {
-                                if (Thread->FirstOpenBlock->Parent == 0) {
-                                    r32 MinT = (r32)(OpeningEvent->Clock - CurrentFrame->BeginClock);
-                                    r32 MaxT = (r32)(Event->Clock - CurrentFrame->BeginClock);
+                                if (GetRecordFrom(Thread->FirstOpenBlock->Parent) == DebugState->ScopeToRecord) {
+                                    r32 MinT = (r32)(OpeningEvent->Clock - DebugState->CollationFrame->BeginClock);
+                                    r32 MaxT = (r32)(Event->Clock - DebugState->CollationFrame->BeginClock);
                                     r32 ThresholdT = 0.01f;
                                     if ((MaxT - MinT) > ThresholdT) {
-                                        debug_frame_region *Region = AddRegion(DebugState, CurrentFrame);
+                                        debug_frame_region *Region = AddRegion(DebugState, DebugState->CollationFrame);
                                         Region->Record = Source;
                                         Region->CycleCount = (Event->Clock - OpeningEvent->Clock);
-                                        Region->LaneIndex = Thread->LaneIndex;
+                                        Region->LaneIndex = (u16)Thread->LaneIndex;
                                         Region->MinT = MinT;
                                         Region->MaxT = MaxT;
+                                        Region->ColorIndex = (u16)OpeningEvent->DebugRecordIndex;
                                     }
                                 }
                             } else {
@@ -427,44 +459,29 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex) {
             }
         }
     }
+}
 
-#if 0
-    debug_counter_state *CounterArray[MAX_DEBUG_TRANSLATION_UNITS];
-    debug_counter_state *CurrentCounter = DebugState->CounterStates;
-    u32 TotalRecordCount = 0;
-    for (u32 UnitIndex = 0; UnitIndex < MAX_DEBUG_TRANSLATION_UNITS; ++UnitIndex) {
-        CounterArray[UnitIndex] = CurrentCounter;
-        TotalRecordCount += GlobalDebugTable->RecordCount[UnitIndex];
+internal void
+RestartCollation(debug_state *DebugState, u32 InvalidEventArrayIndex) {
+    EndTemporaryMemory(DebugState->CollateTemp);
+    DebugState->CollateTemp = BeginTemporaryMemory(&DebugState->CollateArena);
 
-        CurrentCounter += GlobalDebugTable->RecordCount[UnitIndex];
-    }
+    DebugState->FirstThread = 0;
+    DebugState->FirstFreeBlock = 0;
 
-    DebugState->CounterCount = TotalRecordCount;
+    DebugState->Frames = PushArray(&DebugState->CollateArena, MAX_DEBUG_EVENT_ARRAY_COUNT * 4, debug_frame);
+    DebugState->FrameBarLaneCount = 0;
+    DebugState->FrameBarScale = 1.0f / 60000000.0f;
+    DebugState->FrameCount = 0;
 
-    for (uint32 CounterIndex = 0; CounterIndex < DebugState->CounterCount; ++CounterIndex) {
-        debug_counter_state *Dest = DebugState->CounterStates + CounterIndex;
-        Dest->Snapshots[DebugState->SnapshotIndex].HitCount = 0;
-        Dest->Snapshots[DebugState->SnapshotIndex].CycleCount = 0;
-    }
+    DebugState->CollationArrayIndex = InvalidEventArrayIndex + 1;
+    DebugState->CollationFrame = 0;
+}
 
-    for (u32 EventIndex = 0; EventIndex < EventCount; ++EventIndex) {
-        debug_event *Event = Events + EventIndex;
-
-        debug_counter_state *Dest = CounterArray[Event->TranslationUnit] + Event->DebugRecordIndex;
-
-        debug_record *Source = GlobalDebugTable->Records[Event->TranslationUnit] + Event->DebugRecordIndex;
-        Dest->FileName = Source->FileName;
-        Dest->BlockName = Source->BlockName;
-        Dest->LineNumber = Source->LineNumber;
-
-        if (Event->Type == DebugEvent_BeginBlock) {
-            ++Dest->Snapshots[DebugState->SnapshotIndex].HitCount;
-            Dest->Snapshots[DebugState->SnapshotIndex].CycleCount -= Event->Clock;
-        } else if (Event->Type == DebugEvent_EndBlock) {
-            Dest->Snapshots[DebugState->SnapshotIndex].CycleCount += Event->Clock;
-        }
-    }
-#endif
+internal void
+RefreshCollation(debug_state *DebugState) {
+    RestartCollation(DebugState, GlobalDebugTable->CurrentEventArrayIndex);
+    CollateDebugRecords(DebugState, GlobalDebugTable->CurrentEventArrayIndex);
 }
 
 extern "C" DEBUG_GAME_FRAME_END(DEBUGGameFrameEnd) {
@@ -488,15 +505,19 @@ extern "C" DEBUG_GAME_FRAME_END(DEBUGGameFrameEnd) {
             InitializeArena(&DebugState->CollateArena, Memory->DebugStorageSize - sizeof(debug_state),
                             DebugState + 1);
             DebugState->CollateTemp = BeginTemporaryMemory(&DebugState->CollateArena);
+
+            DebugState->Paused = false;
+            DebugState->ScopeToRecord = 0;
+
+            DebugState->Initialized = true;
+
+            RestartCollation(DebugState, GlobalDebugTable->CurrentEventArrayIndex);
         }
 
         if (!DebugState->Paused) {
-            EndTemporaryMemory(DebugState->CollateTemp);
-            DebugState->CollateTemp = BeginTemporaryMemory(&DebugState->CollateArena);
-
-            DebugState->FirstThread = 0;
-            DebugState->FirstFreeBlock = 0;
-
+            if (DebugState->FrameCount >= 4 * MAX_DEBUG_EVENT_ARRAY_COUNT) {
+                RestartCollation(DebugState, GlobalDebugTable->CurrentEventArrayIndex);
+            }
             CollateDebugRecords(DebugState, GlobalDebugTable->CurrentEventArrayIndex);
         }
     }

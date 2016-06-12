@@ -1687,6 +1687,8 @@ WinMain(HINSTANCE Instance,
 
                     END_BLOCK(AudioUpdate);
 
+                    // TODO: Leave this off until we have actual vblank support?
+#if 0
                     BEGIN_BLOCK(FramerateWait);
                     if (!GlobalPause) {
                         LARGE_INTEGER WorkCounter = Win32GetWallClock();
@@ -1718,6 +1720,7 @@ WinMain(HINSTANCE Instance,
                     }
 
                     END_BLOCK(FramerateWait);
+#endif
 
                     BEGIN_BLOCK(FrameDisplay);
                     win32_window_dimension Dimension = Win32GetWindowDimension(Window);
