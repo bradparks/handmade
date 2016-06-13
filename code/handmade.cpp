@@ -766,8 +766,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
         TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(16), TranState);
 
-        DEBUGRenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(16), false);
-
         //GameState->Music = PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Music));
 
         // TODO: Pick a real number here!
@@ -811,10 +809,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         TranState->IsInitialized = true;
     }
 
-    if (DEBUGRenderGroup) {
-        BeginRender(DEBUGRenderGroup);
-        DEBUGReset(DEBUGRenderGroup->Assets, Buffer->Width, Buffer->Height);
-    }
+    DEBUGStart(TranState->Assets, Buffer->Width, Buffer->Height);
 
 #if 0
     // TODO: Re-eanble this? But make sure we don't touch ones in flight??
@@ -1428,11 +1423,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     CheckArena(&GameState->WorldArena);
     CheckArena(&TranState->TranArena);
 
-    if (DEBUGRenderGroup) {
-        DEBUGOverlay(Memory, Input);
-        TiledRenderGroupToOutput(TranState->HighPriorityQueue, DEBUGRenderGroup, DrawBuffer);
-        EndRender(DEBUGRenderGroup);
-    }
+    DEBUGEnd(Input, DrawBuffer);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples) {
